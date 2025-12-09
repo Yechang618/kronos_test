@@ -1,5 +1,9 @@
 import os
 import sys
+import sys
+if sys.version_info < (3, 9):
+    from backports import zoneinfo
+    sys.modules["zoneinfo"] = zoneinfo
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import time
