@@ -36,8 +36,8 @@ training:
 
 model_paths:
   # 使用本地路径（不是 Hugging Face ID）
-  pretrained_tokenizer: "trained/sol_1min_10s/tokenizer"
-  pretrained_predictor: "trained/sol_1min_10s/basemodel"
+  pretrained_tokenizer: "trained/sol_1min_10s/tokenizer/best_model"
+  pretrained_predictor: "trained/sol_1min_10s/basemodel/best_model"
   exp_name: "sol_1min_10s"
   base_path: "trained"
   base_save_path: ""
