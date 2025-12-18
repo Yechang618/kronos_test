@@ -17,8 +17,8 @@ training:
   log_interval: 50
   num_workers: 16
   seed: 42
-  tokenizer_learning_rate: 0.0002
-  predictor_learning_rate: 0.000001
+  tokenizer_learning_rate: 0.002
+  predictor_learning_rate: 0.00001
   adam_beta1: 0.9
   adam_beta2: 0.95
   adam_weight_decay: 0.1
