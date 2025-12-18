@@ -1,0 +1,58 @@
+# config_sol_1min.yaml
+data:
+  # data_path: "finetune_csv/data/SOLUSDT_kronos.csv"
+  data_path: "batch/data/BNBUSDT_kronos.csv"
+  lookback_window: 60
+  predict_window: 1
+  max_context: 2048
+  clip: 5.0
+  train_ratio: 0.9
+  val_ratio: 0.1
+  test_ratio: 0.0
+
+training:
+  tokenizer_epochs: 10
+  basemodel_epochs: 10
+  batch_size: 8
+  log_interval: 50
+  num_workers: 16
+  seed: 42
+  tokenizer_learning_rate: 0.0002
+  predictor_learning_rate: 0.000001
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  adam_weight_decay: 0.1
+  accumulation_steps: 1
+
+# model_paths:
+#   pretrained_tokenizer: "NeoQuasar/Kronos-Tokenizer-2k"
+#   pretrained_predictor: "NeoQuasar/Kronos-mini"
+#   exp_name: "sol_1min_10s"
+#   base_path: "finetune_csv/results"
+#   base_save_path: ""
+#   finetuned_tokenizer: ""
+#   tokenizer_save_name: "tokenizer"
+#   basemodel_save_name: "basemodel"
+
+model_paths:
+  # 使用本地路径（不是 Hugging Face ID）
+  pretrained_tokenizer: "trained/sol_1min_10s/tokenizer/best_model"
+  pretrained_predictor: "trained/sol_1min_10s/basemodel/best_model"
+  exp_name: "sol_1min_10s"
+  base_path: "trained"
+  base_save_path: ""
+  finetuned_tokenizer: ""
+  tokenizer_save_name: "tokenizer"
+  basemodel_save_name: "basemodel"
+  
+experiment:
+  name: "kronos_sol_finetune"
+  description: "Finetune Kronos-mini on SOLUSDT 1min data for 10s prediction"
+  use_comet: false
+  train_tokenizer: true
+  train_basemodel: true
+  skip_existing: false
+
+device:
+  use_cuda: true
+  device_id: 0
