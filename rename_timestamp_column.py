@@ -7,8 +7,9 @@ import pandas as pd
 # input_path = "batch/data/BNBUSDT_kronos.csv"
 # input_path = "batch/data/KAITOUSDT_kronos.csv"
 # input_path = "batch/data/DOTUSDT_kronos.csv"
-input_path = "batch/data/ZECUSDT_kronos.csv"
+# input_path = "batch/data/ZECUSDT_kronos.csv"
 # input_path = "batch/data/SOLUSDT_kronos.csv"
+input_path = "batch/data/SOLUSDT_kronos.csv"
 
 df = pd.read_csv(input_path)
 
