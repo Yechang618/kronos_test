@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from config import Config
+from typing import Tuple 
 
 class QlibDataset(Dataset):
     def __init__(self, data_type: str = 'train'):
@@ -55,7 +56,7 @@ class QlibDataset(Dataset):
     def __len__(self) -> int:
         return self.n_samples
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]: 
         random_idx = self.py_rng.randint(0, len(self.indices) - 1)
         symbol, start_idx = self.indices[random_idx]
         df = self.data[symbol]
