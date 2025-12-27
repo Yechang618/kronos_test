@@ -79,3 +79,5 @@ batch
 trained
 trained_models
 prediction
+data
+outputs
