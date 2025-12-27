@@ -20,7 +20,7 @@ class Config:
         self.seed = 42
         self.batch_size = 8
         self.log_interval = 200
-        self.epochs = 10
+        self.epochs = 20
         self.n_train_iter = 1000 * self.batch_size
         self.n_val_iter = 200 * self.batch_size
 
