@@ -1,7 +1,7 @@
 # config_sol_1min.yaml
 data:
   # data_path: "finetune_csv/data/SOLUSDT_kronos.csv"
-  data_path: "batch/data/OCHL/SOLUSDT_task2.csv"
+  data_path: "batch/data/OCHL/BNBUSDT_task2.csv"
   lookback_window: 240
   predict_window: 30
   max_context: 2048

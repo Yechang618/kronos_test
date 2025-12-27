@@ -1,7 +1,7 @@
 # config_sol_1min.yaml
 data:
   # data_path: "finetune_csv/data/SOLUSDT_kronos.csv"
-  data_path: "batch/data/OCHL/SOLUSDT_task2.csv"
+  data_path: "batch/data/OCHL/ZECUSDT_task2.csv"
   lookback_window: 240
   predict_window: 30
   max_context: 2048
@@ -11,8 +11,8 @@ data:
   test_ratio: 0.0
 
 training:
-  tokenizer_epochs: 10
-  basemodel_epochs: 10
+  tokenizer_epochs: 5
+  basemodel_epochs: 5
   batch_size: 8
   log_interval: 200
   num_workers: 16
