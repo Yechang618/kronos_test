@@ -18,11 +18,11 @@ class Config:
 
         # 训练参数
         self.seed = 42
-        self.batch_size = 8
-        self.log_interval = 200
-        self.epochs = 20
-        self.n_train_iter = 1000 * self.batch_size
-        self.n_val_iter = 200 * self.batch_size
+        self.batch_size = 50
+        self.log_interval = 100
+        self.epochs = 30
+        self.n_train_iter = 10000 * self.batch_size
+        self.n_val_iter = 1600 * self.batch_size
 
         self.tokenizer_learning_rate = 2e-4
         self.predictor_learning_rate = 1e-6
