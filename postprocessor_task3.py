@@ -2,11 +2,12 @@ import pandas as pd
 from pathlib import Path
 
 # 配置
-symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO"]
-symbol = symbols[13]
+symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
+           "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"]
+symbol = symbols[23]
 quote = "USDT"
 pair = f"{symbol}{quote}"
-processed_dir, output_dir = Path("datasets/task3/all"), Path("datasets/kronos_task3_all")
+processed_dir, output_dir = Path("datasets/processed/basis_1min"), Path("batch/data/task3")
 # processed_dir, output_dir = Path("datasets/task3/training"), Path("datasets/kronos_task3_train")
 # processed_dir, output_dir = Path("datasets/task3/testing"), Path("datasets/kronos_task3_test")
 output_dir.mkdir(parents=True, exist_ok=True)

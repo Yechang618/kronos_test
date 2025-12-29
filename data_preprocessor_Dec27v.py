@@ -12,9 +12,10 @@ load_dir = Path("D:/data/datasets")
 processed_dir = base_dir / "processed"
 processed_dir.mkdir(parents=True, exist_ok=True)
 
-symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO"]
+symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
+           "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
 # symbol = "SOL"
-symbol = symbols[13]
+symbol = symbols[23]
 quote = "USDT"
 pair = f"{symbol}{quote}"
 

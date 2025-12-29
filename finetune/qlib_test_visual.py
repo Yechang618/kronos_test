@@ -8,6 +8,7 @@ import torch
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from typing import Tuple, List
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Add project root to path
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -56,6 +57,7 @@ class RollingTestDataset(Dataset):
         # 使用 get_indexer（兼容旧版 pandas）
         start_idx = self.df.index.get_indexer([start_ts], method='nearest')[0]
         end_idx = self.df.index.get_indexer([end_ts], method='nearest')[0]
+        print(f"Dataset indices: start_idx={start_idx}, end_idx={end_idx}")
 
         self.timestamps = []
         current_idx = start_idx
@@ -95,6 +97,7 @@ class RollingTestDataset(Dataset):
         input_end = current_idx + 1
         # 预测窗口: [current_idx + 1, current_idx + 30] -> 30 points
         pred_start = current_idx + 1
+        # pred_end = pred_start + 1
         pred_end = current_idx + 1 + self.pred_horizon
 
         if input_start < 0 or pred_end > len(self.df):
@@ -129,19 +132,25 @@ def predict_with_uncertainty(
     x_stamp: torch.Tensor,
     y_stamp: torch.Tensor,
     device: torch.device,
-    sample_count: int = 30,
+    sample_count: int = 1,
     **kwargs
 ) -> np.ndarray:
     x = x.unsqueeze(0).to(device)
     x_stamp = x_stamp.unsqueeze(0).to(device)
     y_stamp = y_stamp.unsqueeze(0).to(device)
 
+    # 显式指定 pred_len=30，不依赖 kwargs
     preds = auto_regressive_inference(
         tokenizer, model, x, x_stamp, y_stamp,
-        sample_count=sample_count,
-        **kwargs
+        pred_len=30,  # ← 关键修复
+        sample_count=1,
+        max_context=kwargs.get('max_context', 2048),
+        clip=kwargs.get('clip', 5.0),
+        T=kwargs.get('T', 1.0),
+        top_p=kwargs.get('top_p', 0.99),
+        top_k=kwargs.get('top_k', 0)
     )
-    return preds
+    return preds[-len(y_stamp):, 0, :]  # (pred_horizon, feature_dim)
 
 # =================================================================================
 # 4. 主函数
@@ -152,10 +161,11 @@ def main():
 
     # ===== 时间段设置 =====
     start_time = "2025-10-01 04:00:00"
-    end_time = "2025-10-01 07:00:00"
+    end_time = "2025-10-01 05:00:00"
     lookback = 240
     pred_horizon = 30
-    sample_count = 30
+    pred_horizon_1 = 30
+    n_realiz = 13
 
     # ===== 验证测试数据范围 =====
     test_data_path = f"./data/processed_datasets/SOL/test_data.pkl"
@@ -174,7 +184,7 @@ def main():
 
     os.makedirs("figures/rolling_pred", exist_ok=True)
 
-    for sym in symbols:
+    for j, sym in enumerate(symbols):
         print(f"Processing {sym}...")
         test_data_path = f"./data/processed_datasets/{sym}/test_data.pkl"
         if not os.path.exists(test_data_path):
@@ -216,69 +226,78 @@ def main():
         )
 
         for x, x_stamp, y_stamp, current_t, future_ts in loader:
+            # print(f"y_stamp: {y_stamp}")  # Debug 信息
+            # print(f"y_stamp shape: {y_stamp.shape}")  # Debug 信息
             x, x_stamp, y_stamp = x[0], x_stamp[0], y_stamp[0]
             future_ts = future_ts[0]  # (30,)
-
+            # print(f"y_stamp shape: {y_stamp.shape} after squeezing")  # Debug 信息
             # 真实值
-            try:
-                true_close = df.loc[future_ts, 'close'].values  # (30,)
-            except KeyError:
-                continue
-            all_true.append(true_close)
-
+            # try:
+            #     true_close = df.loc[future_ts, 'close'].values  # (30,)
+            # except KeyError:
+            #     continue
+            # all_true.append(true_close)
+            all_true.append(df.loc[future_ts].values)  # Close price index is 3
+            preds = np.zeros((n_realiz, pred_horizon_1, x.shape[1]), dtype=np.float32)
             # 预测
-            preds = predict_with_uncertainty(
-                tokenizer, model, x, x_stamp, y_stamp, device,
-                sample_count=sample_count,
-                max_context=2048,
-                pred_len=pred_horizon,
-                clip=5.0,
-                T=0.6,
-                top_p=0.9,
-                top_k=0
-            )
+            for n in range(n_realiz):
+                preds[n] = predict_with_uncertainty(
+                    tokenizer, model, x, x_stamp, y_stamp, device,
+                    max_context=2048,
+                    pred_len=pred_horizon_1,
+                    clip=5.0,
+                    T=0.6,
+                    top_p=0.9,
+                    top_k=0
+                )
             # preds shape: (sample_count, pred_horizon, feature_dim)
-            pred_close = preds[:, :, 3]          # (30, 30)
-            pred_mean = pred_close.mean(axis=0)  # (30,)
-            pred_std = pred_close.std(axis=0)    # (30,)
+            print(f"Preds shape: {preds.shape}") # Preds shape: (n_realiz, {pred_horizon_1}, 6)
+            pred_mean = preds.mean(axis=0)  # (pred_horizon_1,6)
+            pred_std = preds.std(axis=0)    # (pred_horizon_1,6)
 
+            print(f"Time {current_t[0]} - True: {len(all_true)}, Pred Mean: {pred_mean.shape}, Pred Std: {pred_std.shape}")
             all_pred_mean.append(pred_mean)
             all_pred_std.append(pred_std)
             all_pred_times.append(future_ts)
 
+        print(f"all_true length: {len(all_true)}, all_pred_mean length: {len(all_pred_mean)}, all_pred_std length: {len(all_pred_std)}, all_pred_times length: {len(all_pred_times)}")
+
         if not all_true:
             continue
 
-        true_full = np.concatenate(all_true)        # (6 * 30 = 180,)
-        pred_mean_full = np.concatenate(all_pred_mean)  # (180,)
-        pred_std_full = np.concatenate(all_pred_std)    # (180,)
-        time_full = np.concatenate(all_pred_times)      # (180,)
+        true_full = all_true[0]    # (6 * 30 = 180,)
+        pred_mean_full = all_pred_mean[0]  # (180,)
+        pred_std_full = all_pred_std[0]    # (180,)
+        time_full = all_pred_times[0]      # (180,)
 
         # 最终维度检查
         print(f"Final lengths for {sym} - time: {len(time_full)}, true: {len(true_full)}, pred_mean: {len(pred_mean_full)}, pred_std: {len(pred_std_full)}")
         assert len(time_full) == len(pred_mean_full), f"time {len(time_full)} vs pred {len(pred_mean_full)}"
 
         # 可视化
-        plt.figure(figsize=(12, 6))
-        plt.plot(time_full, true_full, label="Ground Truth", color="black", linewidth=2)
-        plt.plot(time_full, pred_mean_full, label="Prediction Mean", color="red", linewidth=1.5)
-        plt.fill_between(
-            time_full,
-            pred_mean_full - pred_std_full,
-            pred_mean_full + pred_std_full,
-            color="orange",
-            alpha=0.3,
-            label="±1 Std"
-        )
-        plt.title(f"{sym} Rolling Prediction ({start_time[:10]} {start_time[11:16]}-{end_time[11:16]})")
-        plt.xlabel("Time")
-        plt.ylabel("Close Price")
-        plt.legend()
-        plt.grid(True)
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig(f"figures/rolling_pred/{sym}_rolling_pred.png", dpi=200)
-        plt.close()
+        feature_list = ['Open', 'High', 'Low', 'Close', 'Vol', 'Amt']
+        for i in range(6):
+            plt.figure(figsize=(12, 6))
+            plt.plot(time_full, true_full[:, i], label="Ground Truth", color="black", linewidth=2)
+            plt.plot(time_full, pred_mean_full[:, i], label="Prediction Mean", color="red", linewidth=1.5)
+            print(f"{time_full.shape}, {pred_std_full.shape}, {pred_mean_full.shape}")
+            plt.fill_between(
+                time_full,
+                pred_mean_full[:, i] - pred_std_full[:, i],
+                pred_mean_full[:, i] + pred_std_full[:, i],
+                color="orange",
+                alpha=0.3,
+                label="±1 Std"
+            )
+            plt.title(f"{sym} Rolling Prediction ({start_time[:10]} {start_time[11:16]}-{end_time[11:16]})")
+            plt.xlabel("Time")
+            plt.ylabel(f"{feature_list[i]} Price")
+            plt.legend()
+            plt.grid(True)
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            plt.savefig(f"figures/rolling_pred/{sym}_rolling_pred_{feature_list[i]}.png", dpi=200)
+            plt.close()
 
     print("✅ All figures saved in figures/rolling_pred/")
 

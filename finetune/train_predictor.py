@@ -102,7 +102,7 @@ def main():
     tokenizer = KronosTokenizer.from_pretrained(
         os.path.join(config.save_path, config.tokenizer_save_folder_name, 'checkpoints', 'best_model')
     ).to(device).eval()
-
+    
     model = Kronos.from_pretrained(config.pretrained_predictor_path)
     model.to(device)
 
