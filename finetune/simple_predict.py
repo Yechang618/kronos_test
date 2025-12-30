@@ -26,13 +26,13 @@ from model.kronos import sample_from_logits
 TOKENIZER_PATH = "./outputs/models/finetune_tokenizer_all/checkpoints/best_model"
 PREDICTOR_PATH = "./outputs/models/finetune_predictor_all/checkpoints/best_model"
 
-SYMBOL = "SOL"
+SYMBOL = "OM"
 START_TIME = "2025-10-02 00:01:00"
 LOOKBACK_WINDOW = 240
 PRED_HORIZON = 120
 N_SAMPLES = 50
-
-OUTPUT_DIR = Path("figures/step_by_step_pred")
+note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_20251230"
+OUTPUT_DIR = Path(f"figures/step_by_step_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 # ==============================

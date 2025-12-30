@@ -5,7 +5,8 @@ import pandas as pd
 from config import Config
 
 def main():
-    symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO"]
+    symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
+            "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
     config = Config()
     train_val_start = "2025-01-01"
     train_val_end = "2025-09-30"
