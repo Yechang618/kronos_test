@@ -11,8 +11,8 @@ class Config:
         self.dataset_path = "./data/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 240
-        self.predict_window = 30
+        self.lookback_window = 144
+        self.predict_window = 6
         self.max_context = 2048
         self.clip = 5.0
 
@@ -20,11 +20,11 @@ class Config:
         self.seed = 42
         self.batch_size = 10
         self.log_interval = 100
-        self.epochs = 20
+        self.epochs = 50
         self.n_train_iter = 50000 * self.batch_size
         self.n_val_iter = 8000 * self.batch_size
 
-        self.tokenizer_learning_rate = 2e-4
+        self.tokenizer_learning_rate = 5e-4
         self.predictor_learning_rate = 1e-6
         self.adam_beta1 = 0.9
         self.adam_beta2 = 0.95
@@ -32,8 +32,8 @@ class Config:
         self.accumulation_steps = 1
 
         # 模型路径
-        self.pretrained_tokenizer_path = "trained/task3/tokenizer/best_model"
-        self.pretrained_predictor_path = "trained/task3/basemodel/best_model"
+        self.pretrained_tokenizer_path = "trained/task4/tokenizer/best_model"
+        self.pretrained_predictor_path = "trained/task4/basemodel/best_model"
 
         self.save_path = "./outputs/models"
         self.tokenizer_save_folder_name = "finetune_tokenizer_all"
@@ -41,7 +41,7 @@ class Config:
 
         # 测试
         self.backtest_result_path = "./outputs/backtest_results"
-        self.backtest_save_folder_name = "task3_multisymbol_backtest"
+        self.backtest_save_folder_name = "task4_multisymbol_backtest"
         self.backtest_time_range = ["2025-10-01", "2025-10-29"]
 
         # Comet（禁用）

@@ -26,14 +26,44 @@ from model.kronos import sample_from_logits
 TOKENIZER_PATH = "./outputs/models/finetune_tokenizer_all/checkpoints/best_model"
 PREDICTOR_PATH = "./outputs/models/finetune_predictor_all/checkpoints/best_model"
 
-SYMBOL = "OM"
+symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
+           "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
+SYMBOL = symbols[8]
 START_TIME = "2025-10-02 00:01:00"
 LOOKBACK_WINDOW = 240
 PRED_HORIZON = 120
+PRED_LENGTH = 30
 N_SAMPLES = 50
 note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_20251230"
 OUTPUT_DIR = Path(f"figures/step_by_step_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+
+# ==============================
+# My tools
+# ==============================
+def compute_trends(pred):
+    """
+    计算趋势：1 表示上升，-1 表示下降，0 表示持平
+    data: numpy array, shape (N,)
+    """
+    assert pred.shape[1] == 6, "Input data must have 6 features"
+    close = pred[:, 3]  # 使用收盘价计算趋势
+
+    assert pred.shape[0] == PRED_LENGTH, "Input data must be PRED_LENGTH-dimensional"
+    if PRED_LENGTH == 1:
+        return close  # 单步预测无法计算趋势
+    K = 1 + PRED_LENGTH//10
+    trend = np.zeros(K)
+    intervels = [1]
+    for i in range(1, K):
+        if i*10 <= PRED_LENGTH:
+            intervels.append(i*5)
+        else:
+            break
+    for k, itv in enumerate(intervels):
+        trend[k] = (sum(close[itv:(2*itv)]) - sum(close[0:itv])) / itv
+    return trend
+
 
 # ==============================
 # 自定义 Predictor（简化版）
@@ -175,7 +205,7 @@ def main():
 
     # 存储所有预测 (30, 20, 6)
     all_forecasts = np.full((PRED_HORIZON, N_SAMPLES, len(feature_list)), np.nan)
-
+    all_forecasts_trends = np.full((PRED_HORIZON, N_SAMPLES, 1 + PRED_LENGTH//10), np.nan)
     # 逐步预测
     for i in range(PRED_HORIZON):
         context_end = x_end + i
@@ -183,7 +213,7 @@ def main():
 
         x_input = df.iloc[context_start:context_end][feature_list].values.astype(np.float32)
         x_stamp_input = df.iloc[context_start:context_end][time_features].values.astype(np.float32)
-        y_stamp = df.iloc[context_end:context_end + 1][time_features].values.astype(np.float32)
+        y_stamp = df.iloc[context_end:context_end + PRED_LENGTH][time_features].values.astype(np.float32)
 
         # Normalize x_input
         x_mean, x_std = np.mean(x_input, axis=0), np.std(x_input, axis=0)
@@ -191,63 +221,200 @@ def main():
         x_input_norm = np.clip(x_input_norm, -5.0, 5.0)
 
         preds = []
+        trends = []
         for _ in range(N_SAMPLES):
             pred = predictor.predict(
                 x=x_input_norm,
                 x_stamp=x_stamp_input,
                 y_stamp=y_stamp,
-                pred_len=1,
+                pred_len=PRED_LENGTH,
                 T=0.6,
                 top_p=0.9,
                 top_k=0
             )  # (1, 6)
             # print(f"Step {i+1}/{PRED_HORIZON}, Sample Prediction: {pred}")
-            preds.append(pred[0, :] * (x_std + 1e-5) + x_mean)  # 反归一化
+            # print(f"pred shape: {pred.shape}") # predict shape: (PRED_LENGTH, 6)
+            for j in range(pred.shape[0]):
+                pred[j, :] = pred[j, :]* (x_std + 1e-5) + x_mean  # 反归一化
+            trend = compute_trends(pred)  # 计算趋势
+            trends.append(trend)
+            preds.append(pred[0, :])  # 反归一化
         all_forecasts[i] = np.array(preds)
+        all_forecasts_trends[i] = np.array(trends)
 
     # 计算统计量
     pred_mean = all_forecasts.mean(axis=1)  # (30, 6)
     pred_std = all_forecasts.std(axis=1)    # (30, 6)
+    pred_trend_mean = all_forecasts_trends.mean(axis=1)  # (30, trend_dim)
+    pred_trend_std = all_forecasts_trends.std(axis=1)    # (30, trend_dim)
 
     # 完整时间轴：x + y
     full_time = df.index[x_start:x_end + PRED_HORIZON]
     full_values = df.iloc[x_start:x_end + PRED_HORIZON][feature_list].values  # (270, 6)
     true_y_values = y_true_df.values  # (30, 6)
 
-    # 绘图
-    feature_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'Amount']
-    for i, name in enumerate(feature_names):
-        plt.figure(figsize=(12, 5))
+    # # 绘图
+    # feature_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'Amount']
+    # for i, name in enumerate(feature_names):
+    #     plt.figure(figsize=(12, 5))
 
-        # # 真实值（x + y）
-        # plt.plot(full_time, full_values[:, i], color='black', linewidth=1.5, label=f'True {name}')
+    #     # # 真实值（x + y）
+    #     # plt.plot(full_time, full_values[:, i], color='black', linewidth=1.5, label=f'True {name}')
 
-        # 真实值（y only）
-        plt.plot(y_time, true_y_values[:, i], color='black', linewidth=1.5, label=f'True {name}')        
+    #     # 真实值（y only）
+    #     plt.plot(y_time, true_y_values[:, i], color='black', linewidth=1.5, label=f'True {name}')        
 
-        # 预测均值（y only）
-        plt.plot(y_time, pred_mean[:, i], 'o-', color='red', linewidth=2, label='Predicted mean')
+    #     # 预测均值（y only）
+    #     plt.plot(y_time, pred_mean[:, i], 'o-', color='red', linewidth=2, label='Predicted mean')
 
-        # 不确定性
-        plt.fill_between(
-            y_time,
-            pred_mean[:, i] - pred_std[:, i],
-            pred_mean[:, i] + pred_std[:, i],
-            color='lightcoral', alpha=0.4, label='±1 std'
-        )
-        # plt.yscale('log')
-        # 分隔线
-        plt.axvline(x=x_time[-1], color='gray', linestyle='--', alpha=0.7, label='Prediction start')
+    #     # 不确定性
+    #     plt.fill_between(
+    #         y_time,
+    #         pred_mean[:, i] - pred_std[:, i],
+    #         pred_mean[:, i] + pred_std[:, i],
+    #         color='lightcoral', alpha=0.4, label='±1 std'
+    #     )
+    #     # plt.yscale('log')
+    #     # 分隔线
+    #     plt.axvline(x=x_time[-1], color='gray', linestyle='--', alpha=0.7, label='Prediction start')
 
-        plt.title(f'{SYMBOL} - {name} (Step-by-Step Prediction, N={N_SAMPLES})')
-        plt.xlabel('Time')
-        plt.ylabel(name)
-        plt.legend()
-        plt.grid(True, linestyle=':', alpha=0.7)
+    #     plt.title(f'{SYMBOL} - {name} (Step-by-Step Prediction, N={N_SAMPLES})')
+    #     plt.xlabel('Time')
+    #     plt.ylabel(name)
+    #     plt.legend()
+    #     plt.grid(True, linestyle=':', alpha=0.7)
+    #     plt.xticks(rotation=45)
+    #     plt.tight_layout()
+    #     plt.savefig(OUTPUT_DIR / f"{SYMBOL}_{name.lower()}.png", dpi=150)
+    #     plt.close()
+
+    # for k in range(pred_trend_mean.shape[1]):
+    #     plt.figure(figsize=(12, 5))
+    #     plt.plot(y_time, pred_trend_mean[:, k], 'o-', color='blue', linewidth=2, label='Predicted Trend Mean')
+    #     plt.fill_between(
+    #         y_time,
+    #         pred_trend_mean[:, k] - pred_trend_std[:, k],
+    #         pred_trend_mean[:, k] + pred_trend_std[:, k],
+    #         color='lightblue', alpha=0.4, label='±1 std'
+    #     )
+    #     plt.axvline(x=x_time[-1], color='gray', linestyle='--', alpha=0.7, label='Prediction start')
+
+    #     plt.title(f'{SYMBOL} - Trend Component {k+1} (Step-by-Step Prediction, N={N_SAMPLES})')
+    #     plt.xlabel('Time')
+    #     plt.ylabel('Trend Value')
+    #     plt.legend()
+    #     plt.grid(True, linestyle=':', alpha=0.7)
+    #     plt.xticks(rotation=45)
+    #     plt.tight_layout()
+    #     plt.savefig(OUTPUT_DIR / f"{SYMBOL}_trend_component_{k+1}.png", dpi=150)
+    #     plt.close()
+    # print(f"✅ All plots saved to {OUTPUT_DIR.absolute()}")
+
+    # ==============================
+    # 绘图：第一张图（3,1）—— 价格和量能
+    # ==============================
+    fig1, axes1 = plt.subplots(3, 1, figsize=(12, 12), sharex=True)
+
+    # (0) Close
+    ax = axes1[0]
+    ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Close')
+    ax.plot(y_time, pred_mean[:, 3], 'o-', color='red', linewidth=2, label='Predicted Mean')
+    ax.fill_between(
+        y_time,
+        pred_mean[:, 3] - pred_std[:, 3],
+        pred_mean[:, 3] + pred_std[:, 3],
+        color='lightcoral', alpha=0.4, label='±1 std'
+    )
+    ax.set_ylabel('Close')
+    ax.legend()
+    ax.grid(True, linestyle=':', alpha=0.7)
+
+    # (1) High and Low
+    ax = axes1[1]
+    # High
+    ax.plot(y_time, true_y_values[:, 1], color='black', linewidth=1.5, label='True High')
+    ax.plot(y_time, pred_mean[:, 1], 'o-', color='red', linewidth=2, label='Predicted High Mean')
+    ax.fill_between(
+        y_time,
+        pred_mean[:, 1] - pred_std[:, 1],
+        pred_mean[:, 1] + pred_std[:, 1],
+        color='lightcoral', alpha=0.3
+    )
+    # Low
+    ax.plot(y_time, true_y_values[:, 2], color='purple', linewidth=1.5, label='True Low')
+    ax.plot(y_time, pred_mean[:, 2], 'o-', color='blue', linewidth=2, label='Predicted Low Mean')
+    ax.fill_between(
+        y_time,
+        pred_mean[:, 2] - pred_std[:, 2],
+        pred_mean[:, 2] + pred_std[:, 2],
+        color='lightblue', alpha=0.3
+    )
+    ax.set_ylabel('High / Low')
+    ax.legend()
+    ax.grid(True, linestyle=':', alpha=0.7)
+
+    # (2) Volume and Amount
+    ax = axes1[2]
+    # Volume
+    ax.plot(y_time, true_y_values[:, 4], color='black', linewidth=1.5, label='True Volume')
+    ax.plot(y_time, pred_mean[:, 4], 'o-', color='red', linewidth=2, label='Predicted Volume Mean')
+    ax.fill_between(
+        y_time,
+        pred_mean[:, 4] - pred_std[:, 4],
+        pred_mean[:, 4] + pred_std[:, 4],
+        color='lightcoral', alpha=0.3
+    )
+    # Amount
+    ax.plot(y_time, true_y_values[:, 5], color='purple', linewidth=1.5, label='True Amount')
+    ax.plot(y_time, pred_mean[:, 5], 'o-', color='blue', linewidth=2, label='Predicted Amount Mean')
+    ax.fill_between(
+        y_time,
+        pred_mean[:, 5] - pred_std[:, 5],
+        pred_mean[:, 5] + pred_std[:, 5],
+        color='lightblue', alpha=0.3
+    )
+    ax.set_ylabel('Volume / Amount')
+    ax.set_xlabel('Time')
+    ax.legend()
+    ax.grid(True, linestyle=':', alpha=0.7)
+    plt.xticks(rotation=45)
+
+    fig1.suptitle(f'{SYMBOL} - Price and Volume Prediction (N={N_SAMPLES})')
+    fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_price_volume.png", dpi=150)
+    plt.close(fig1)
+
+    # ==============================
+    # 绘图：第二张图（K,1）—— Trend Components
+    # ==============================
+    n_trends = pred_trend_mean.shape[1]
+    if n_trends > 0:
+        fig2, axes2 = plt.subplots(n_trends, 1, figsize=(12, 4 * n_trends), sharex=True)
+        if n_trends == 1:
+            axes2 = [axes2]  # Ensure list for single subplot
+
+        for k in range(n_trends):
+            ax = axes2[k]
+            ax.plot(y_time, pred_trend_mean[:, k], 'o-', color='blue', linewidth=2, label=f'Trend {k+1} Mean')
+            ax.fill_between(
+                y_time,
+                pred_trend_mean[:, k] - pred_trend_std[:, k],
+                pred_trend_mean[:, k] + pred_trend_std[:, k],
+                color='lightblue', alpha=0.4, label='±1 std'
+            )
+            ax.axvline(x=x_time[-1], color='gray', linestyle='--', alpha=0.7)
+            ax.set_ylabel(f'Trend {k+1}')
+            ax.legend()
+            ax.grid(True, linestyle=':', alpha=0.7)
+
+        axes2[-1].set_xlabel('Time')
         plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig(OUTPUT_DIR / f"{SYMBOL}_{name.lower()}.png", dpi=150)
-        plt.close()
+        fig2.suptitle(f'{SYMBOL} - Trend Components (N={N_SAMPLES})')
+        fig2.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_trend_components.png", dpi=150)
+        plt.close(fig2)
+    else:
+        print("⚠️ No trend components to plot.")
 
     print(f"✅ All plots saved to {OUTPUT_DIR.absolute()}")
 

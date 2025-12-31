@@ -4,10 +4,10 @@ from pathlib import Path
 # 配置
 symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
            "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"]
-symbol = symbols[23]
+symbol = symbols[6]
 quote = "USDT"
 pair = f"{symbol}{quote}"
-processed_dir, output_dir = Path("datasets/processed/basis_1min"), Path("batch/data/task3")
+processed_dir, output_dir = Path("datasets/processed/basis_10min"), Path("batch/data/task4")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # 收集所有 processed 文件
@@ -47,7 +47,7 @@ df_kronos["amount"] = df_all["Amount"]
 df_kronos = df_kronos.dropna(how="all")
 # df_kronos.index.names = ["timestamps"]
 # 保存为 Kronos 格式
-output_file = output_dir / f"{pair}_task3.csv"
+output_file = output_dir / f"{pair}_task4.csv"
 # if "timestamp" in df_kronos.columns:
 #     df_kronos = df_kronos.rename(columns={"timestamp": "timestamps"})
 print(df_kronos.info())
