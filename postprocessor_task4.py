@@ -4,7 +4,7 @@ from pathlib import Path
 # 配置
 symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
            "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"]
-symbol = symbols[6]
+symbol = symbols[0]
 quote = "USDT"
 pair = f"{symbol}{quote}"
 processed_dir, output_dir = Path("datasets/processed/basis_10min"), Path("batch/data/task4")
