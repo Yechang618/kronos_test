@@ -4,6 +4,8 @@ import pickle
 import pandas as pd
 from config import Config
 
+TASK_NAME = "task4"
+
 def main():
     symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
             "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
@@ -16,7 +18,7 @@ def main():
     combined_train, combined_val = {}, {}
 
     for sym in symbols:
-        csv_path = f"batch/data/task3/{sym}USDT_task3.csv"
+        csv_path = f"batch/data/{TASK_NAME}/{sym}USDT_{TASK_NAME}.csv"
         try:
             df = pd.read_csv(csv_path)
             df['datetime'] = pd.to_datetime(df['timestamps'])
