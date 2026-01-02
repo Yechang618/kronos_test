@@ -8,7 +8,9 @@ class Config:
         self.time_feature_list = ['minute', 'hour', 'weekday', 'day', 'month']
 
         # 路径
-        self.dataset_path = "./data/processed_datasets"
+        self.dataset_path_1min = "./datasets/task3/processed_datasets"
+        self.dataset_path_10min = "./datasets/task4/processed_datasets"
+        self.dataset_path = "./datasets/task4/processed_datasets"
 
         # 时间窗口
         self.lookback_window = 144
@@ -25,7 +27,7 @@ class Config:
         self.n_val_iter = 8000 * self.batch_size
 
         self.tokenizer_learning_rate = 5e-4
-        self.predictor_learning_rate = 1e-6
+        self.predictor_learning_rate = 1e-7
         self.adam_beta1 = 0.9
         self.adam_beta2 = 0.95
         self.adam_weight_decay = 0.1

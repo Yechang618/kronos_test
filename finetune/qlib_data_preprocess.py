@@ -9,7 +9,7 @@ TASK_NAME = "task4"
 def main():
     symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
             "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
-    config = Config()
+    # config = Config()
     train_val_start = "2025-01-01"
     train_val_end = "2025-09-30"
     test_start = "2025-10-01"
@@ -37,15 +37,15 @@ def main():
 
         # 独立测试集（按 symbol）
         test_df = df[(df.index >= test_start) & (df.index <= test_end)]
-        os.makedirs(f"./data/processed_datasets/{sym}", exist_ok=True)
-        with open(f"./data/processed_datasets/{sym}/test_data.pkl", 'wb') as f:
+        os.makedirs(f"./datasets/{TASK_NAME}/processed_datasets/{sym}", exist_ok=True)
+        with open(f"./datasets/{TASK_NAME}/processed_datasets/{sym}/test_data.pkl", 'wb') as f:
             pickle.dump({sym: test_df}, f)
 
     # 保存合并 train/val
-    os.makedirs("./data/processed_datasets", exist_ok=True)
-    with open("./data/processed_datasets/train_data.pkl", 'wb') as f:
+    os.makedirs(f"./datasets/{TASK_NAME}/processed_datasets", exist_ok=True)
+    with open(f"./datasets/{TASK_NAME}/processed_datasets/train_data.pkl", 'wb') as f:
         pickle.dump(combined_train, f)
-    with open("./data/processed_datasets/val_data.pkl", 'wb') as f:
+    with open(f"./datasets/{TASK_NAME}/processed_datasets/val_data.pkl", 'wb') as f:
         pickle.dump(combined_val, f)
 
     print("✅ Preprocessing complete.")

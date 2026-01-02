@@ -23,18 +23,18 @@ from model.kronos import sample_from_logits
 # ==============================
 # 配置
 # ==============================
-TOKENIZER_PATH = "./outputs/models/finetune_tokenizer_all/checkpoints/best_model"
-PREDICTOR_PATH = "./outputs/models/finetune_predictor_all/checkpoints/best_model"
+TOKENIZER_PATH = "./outputs/models_10min/finetune_tokenizer_all/checkpoints/best_model"
+PREDICTOR_PATH = "./outputs/models_10min/finetune_predictor_all/checkpoints/best_model"
 
 symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
            "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
-SYMBOL = symbols[14]
-START_TIME = "2025-10-02 00:01:00"
+SYMBOL = symbols[2]
+START_TIME = "2025-10-05 00:00:00"
 LOOKBACK_WINDOW = 240
 PRED_HORIZON = 120
 PRED_LENGTH = 30
 N_SAMPLES = 50
-note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_20251230"
+note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_10min"
 OUTPUT_DIR = Path(f"figures/step_by_step_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
@@ -166,7 +166,7 @@ def main():
     predictor = KronosPredictor(model, tokenizer, device, max_context=2048)
 
     print("📊 Loading test data...")
-    with open(f"./data/processed_datasets/{SYMBOL}/test_data.pkl", 'rb') as f:
+    with open(f"./datasets/task4/processed_datasets/{SYMBOL}/test_data.pkl", 'rb') as f:
         data = pickle.load(f)
     df = data[SYMBOL].copy()
     df['minute'] = df.index.minute
