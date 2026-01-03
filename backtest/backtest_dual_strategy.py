@@ -21,6 +21,7 @@ from config import Config
 from model.kronos import Kronos, KronosTokenizer
 from model.kronos import sample_from_logits
 
+from hourly_dynamic_params import calculate_hourly_trading_params
 class DualStrategyBacktest100ms:
     def __init__(self, symbol, start_time, end_time, static_params):
         """
@@ -35,7 +36,7 @@ class DualStrategyBacktest100ms:
         self.P1 = 1000.0  # 策略1本金
         self.P2 = 1000.0  # 策略2本金
         self.alpha = 0.1
-        self.beta = 0.5
+        self.beta = 0.8
         self.dt = 0.01
         
         # 交易成本
@@ -44,10 +45,15 @@ class DualStrategyBacktest100ms:
         self.c_m_swap = 0.0
         self.c_m_spot = 0.0000825
 
+        # Premium cost
+        self.premium_tt = -0.00005
+        self.premium_mt = -0.00005
+
+
         # Total cost
-        self.c_tt = self.c_t_swap + self.c_t_spot
-        self.c_tm = self.c_m_swap + self.c_m_spot   
-        self.c_mt = self.c_t_swap + self.c_m_spot
+        self.c_tt = self.c_t_swap + self.c_t_spot + self.premium_tt
+        self.c_tm = self.c_m_swap + self.c_m_spot + self.premium_mt  
+        self.c_mt = self.c_t_swap + self.c_m_spot + self.premium_mt
         
         # 仓位初始化
         self.p1_swap = self.p2_swap = 0.0
@@ -278,6 +284,27 @@ class DualStrategyBacktest100ms:
         
         df_10min = df_10min.dropna()
         return df_10min
+
+    def update_strategy1_params(self, current_time):
+        """每小时为策略1更新动态参数"""
+        # 获取过去1小时的数据
+        start_time = current_time - pd.Timedelta(hours=1)
+        hourly_data = self.raw_df[start_time:current_time]
+        
+        if len(hourly_data) == 0:
+            return
+            
+        # 使用策略函数计算参数
+        new_params = calculate_hourly_trading_params(
+            hourly_data, 
+            a=0.001,  # 你可以调整这些参数
+            b=0.0008,
+            c_t_swap=self.c_t_swap,
+            c_t_spot=self.c_t_spot,
+            c_m_swap=self.c_m_swap,
+            c_m_spot=self.c_m_spot
+        )
+        return new_params
 
     def update_dynamic_params(self, current_time):
         """每10分钟更新动态交易参数"""
@@ -559,30 +586,36 @@ class DualStrategyBacktest100ms:
         df_grouped = self.raw_df.groupby(pd.Grouper(freq='1s'))
         last_update_time = None
         
+        last_update_time_1 = None  # 策略1参数更新时间
+        last_update_time_2 = None  # 策略2参数更新时间
+    
         for second_timestamp, second_group in df_grouped:
             if second_group.empty:
                 continue
                 
-            # 每10分钟更新动态参数
-            if (last_update_time is None or 
-                second_timestamp - last_update_time >= pd.Timedelta(minutes=10)):
-                self.update_dynamic_params(second_timestamp)
-                last_update_time = second_timestamp
+            # 策略1：每小时更新
+            if (last_update_time_1 is None or 
+                second_timestamp - last_update_time_1 >= pd.Timedelta(hours=1)):
+                self.strategy1_params = self.update_strategy1_params(second_timestamp)
+                last_update_time_1 = second_timestamp
+                
+            # 策略2：每10分钟更新（保持原有逻辑）
+            if (last_update_time_2 is None or 
+                second_timestamp - last_update_time_2 >= pd.Timedelta(minutes=10)):
+                self.update_dynamic_params(second_timestamp)  # 这是策略2的更新
+                last_update_time_2 = second_timestamp
             
-            # 在每个秒区间内，逐100ms检查交易机会
+            # 执行交易时使用各自的参数
             trade_executed_1 = trade_executed_2 = False
             for timestamp in second_group.index:
-                # 策略1：静态参数
                 if not trade_executed_1:
-                    if self.execute_trade(1, timestamp, self.static_params):
+                    if self.execute_trade(1, timestamp, self.strategy1_params):
                         trade_executed_1 = True
-                
-                # 策略2：动态参数
+                        
                 if not trade_executed_2:
                     if self.execute_trade(2, timestamp, self.current_dynamic_params):
                         trade_executed_2 = True
-                
-                # 如果两个策略都执行了，可以提前跳出
+                        
                 if trade_executed_1 and trade_executed_2:
                     break
             
@@ -653,8 +686,10 @@ class DualStrategyBacktest100ms:
 
 def main():
     symbol = "XRP"
-    start_time = "2025-10-01 00:00:00"
-    end_time = "2025-10-07 23:59:59"
+    # start_time, end_time = "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+    start_time, end_time = "2025-10-14 00:00:00", "2025-10-20 23:59:59"
+    # start_time, end_time = "2025-10-22 00:00:00", "2025-10-28 23:59:59"
+
     static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     
     backtest = DualStrategyBacktest100ms(symbol, start_time, end_time, static_params)

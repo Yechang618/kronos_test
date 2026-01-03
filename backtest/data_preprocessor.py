@@ -115,12 +115,15 @@ def load_and_process_data(symbol, date_range, load_dir, output_dir):
             print(f"  ❌ Error on {date_str}: {e}")
 
 def main():
-    symbol = "XRP"
+    symbol = "SOL"
     load_dir = Path("D:/data/datasets")
     output_dir = Path("./backtest/data")
     output_dir.mkdir(parents=True, exist_ok=True)
     
     time_periods = [("2025-10-01", "2025-10-07")]
+    # time_periods = [("2025-10-14", "2025-10-20")]
+    # time_periods = [("2025-10-22", "2025-10-28")]    
+    
     
     for start_str, end_str in time_periods:
         print(f"\nProcessing: {start_str} to {end_str}")

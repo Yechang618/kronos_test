@@ -14,15 +14,15 @@ class Config:
 
         # 时间窗口
         self.lookback_window = 144
-        self.predict_window = 6
+        self.predict_window = 1
         self.max_context = 2048
         self.clip = 5.0
 
         # 训练参数
         self.seed = 42
-        self.batch_size = 5
+        self.batch_size = 10
         self.log_interval = 100
-        self.epochs = 30
+        self.epochs = 10
         self.n_train_iter = 50000 * self.batch_size
         self.n_val_iter = 8000 * self.batch_size
 
