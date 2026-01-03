@@ -63,6 +63,8 @@ class DualStrategyBacktest100ms:
         # 结果记录
         self.pnl1_history = []
         self.pnl2_history = []
+        self.params1_history = []
+        self.params2_history = []
         self.timestamps = []
         
         # 数据
@@ -307,16 +309,92 @@ class DualStrategyBacktest100ms:
         return new_params
 
     def update_dynamic_params(self, current_time):
+        # """每10分钟更新动态交易参数"""
+        # # 获取过去144个10分钟K线（24小时）
+        # start_time = current_time - pd.Timedelta(hours=24)
+        # df_100ms = self.raw_df[start_time:current_time]
+        # print("Updating dynamic params at", current_time)
+        # print(df_100ms.info())
+        # if len(df_100ms) == 0:
+        #     return
+            
+        # df_10min = self.resample_to_10min(df_100ms)
+        # if len(df_10min) < 144 or df_10min.empty:
+        #     return
+        
+        # # 准备预测输入
+        # config = Config()
+        # feature_list = config.feature_list
+        # time_features = ['minute', 'hour', 'weekday', 'day', 'month']
+        
+        # # 取最后144根K线 - 确保是副本
+        # x_df = df_10min[-144:].copy()
+        
+        # # 安全地添加时间特征 - 避免 SettingWithCopyWarning
+        # x_df = x_df.assign(
+        #     minute=x_df.index.minute,
+        #     hour=x_df.index.hour,
+        #     weekday=x_df.index.weekday,
+        #     day=x_df.index.day,
+        #     month=x_df.index.month
+        # )
+        
+        # # 确保所有特征列存在且为数值类型
+        # for col in feature_list:
+        #     if col not in x_df.columns:
+        #         x_df[col] = np.nan
+        #     # 强制转换为 float32
+        #     x_df[col] = pd.to_numeric(x_df[col], errors='coerce')
+        
+        # x = x_df[feature_list].values.astype(np.float32)
+        # x_stamp = x_df[time_features].values.astype(np.float32)
+        
+        # # 移除包含 NaN 的行
+        # valid_mask = ~np.isnan(x).any(axis=1)
+        # if not valid_mask.any():
+        #     return
+            
+        # x = x[valid_mask]
+        # x_stamp = x_stamp[valid_mask]
+        
+        # # 如果数据不足，跳过
+        # if len(x) == 0:
+        #     return
+        
+        # # 预测未来1个10分钟K线（30个样本）
+        # N_SAMPLES = 30
+        # PRED_LENGTH = 6
+        
+        # # Normalize
+        # x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
+        # x_norm = (x - x_mean) / (x_std + 1e-5)
+        # x_norm = np.clip(x_norm, -5.0, 5.0)
+        
+        # # **关键修复：确保 y_stamp 是数值类型**
+        # last_timestamp = x_df.index[-1]
+        # y_stamp_data = np.array([[
+        #     last_timestamp.minute,
+        #     last_timestamp.hour, 
+        #     last_timestamp.weekday(),
+        #     last_timestamp.day,
+        #     last_timestamp.month
+        # ]], dtype=np.float32)  # ← 直接创建 float32 数组
+        
+        # y_stamp = np.tile(y_stamp_data, (PRED_LENGTH, 1))
         """每10分钟更新动态交易参数"""
         # 获取过去144个10分钟K线（24小时）
+        # 预测未来1个10分钟K线（30个样本）
+        N_SAMPLES = 30
+        PRED_LENGTH = 6
         start_time = current_time - pd.Timedelta(hours=24)
-        df_100ms = self.raw_df[start_time:current_time]
-        
+        df_100ms = self.raw_df[start_time:current_time+ pd.Timedelta(hours=1)]
+        # print("Updating dynamic params at", current_time)
+        # print(df_100ms.info())
         if len(df_100ms) == 0:
             return
             
         df_10min = self.resample_to_10min(df_100ms)
-        if len(df_10min) < 144 or df_10min.empty:
+        if len(df_10min) < 144 + PRED_LENGTH or df_10min.empty:
             return
         
         # 准备预测输入
@@ -325,8 +403,8 @@ class DualStrategyBacktest100ms:
         time_features = ['minute', 'hour', 'weekday', 'day', 'month']
         
         # 取最后144根K线 - 确保是副本
-        x_df = df_10min[-144:].copy()
-        
+        x_df = df_10min[-144-PRED_LENGTH:-PRED_LENGTH].copy()
+        y_df = df_10min[-PRED_LENGTH:].copy()
         # 安全地添加时间特征 - 避免 SettingWithCopyWarning
         x_df = x_df.assign(
             minute=x_df.index.minute,
@@ -334,6 +412,13 @@ class DualStrategyBacktest100ms:
             weekday=x_df.index.weekday,
             day=x_df.index.day,
             month=x_df.index.month
+        )
+        y_df = y_df.assign(
+            minute=y_df.index.minute,
+            hour=y_df.index.hour,
+            weekday=y_df.index.weekday,
+            day=y_df.index.day,
+            month=y_df.index.month
         )
         
         # 确保所有特征列存在且为数值类型
@@ -356,29 +441,14 @@ class DualStrategyBacktest100ms:
         
         # 如果数据不足，跳过
         if len(x) == 0:
-            return
-        
-        # 预测未来1个10分钟K线（30个样本）
-        N_SAMPLES = 30
-        PRED_LENGTH = 1
+            return        
         
         # Normalize
         x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
         x_norm = (x - x_mean) / (x_std + 1e-5)
         x_norm = np.clip(x_norm, -5.0, 5.0)
-        
-        # **关键修复：确保 y_stamp 是数值类型**
-        last_timestamp = x_df.index[-1]
-        y_stamp_data = np.array([[
-            last_timestamp.minute,
-            last_timestamp.hour, 
-            last_timestamp.weekday(),
-            last_timestamp.day,
-            last_timestamp.month
-        ]], dtype=np.float32)  # ← 直接创建 float32 数组
-        
-        y_stamp = np.tile(y_stamp_data, (PRED_LENGTH, 1))
-        
+        y_stamp = y_df[time_features].values.astype(np.float32)   
+        # print(f"current_time: {current_time}, x shape: {x.shape}, y_stamp: {y_stamp}")      
         # 预测
         preds = []
         for _ in range(N_SAMPLES):
@@ -392,7 +462,11 @@ class DualStrategyBacktest100ms:
                 top_k=0
             )
             # 反归一化
-            pred = pred * (x_std + 1e-5) + x_mean
+            # pred = pred * (x_std + 1e-5) + x_mean
+            print(pred.shape)
+            for j in range(pred.shape[0]):
+                pred[j, :] = pred[j, :]* (x_std + 1e-5) + x_mean  # 反归一化
+            print(pred[0])
             preds.append(pred[0])
         
         if not preds:
@@ -623,9 +697,13 @@ class DualStrategyBacktest100ms:
             last_timestamp = second_group.index[-1]
             pnl1 = self.calculate_pnl(last_timestamp, 1)
             pnl2 = self.calculate_pnl(last_timestamp, 2)
+            
+
             if not pd.isna(pnl1) and not pd.isna(pnl2):
                 self.pnl1_history.append(pnl1)
                 self.pnl2_history.append(pnl2)
+                self.params1_history.append((self.strategy1_params[0]+self.strategy1_params[1])/2)
+                self.params2_history.append((self.current_dynamic_params[0]+self.current_dynamic_params[1])/2)
                 self.timestamps.append(last_timestamp)
 
     def save_results(self):
@@ -636,7 +714,9 @@ class DualStrategyBacktest100ms:
         df = pd.DataFrame({
             'timestamp': self.timestamps,
             'pnl_strategy1': self.pnl1_history,
-            'pnl_strategy2': self.pnl2_history
+            'pnl_strategy2': self.pnl2_history,
+            'param_strategy1': self.params1_history,
+            'param_strategy2': self.params2_history
         })
         df.set_index('timestamp', inplace=True)
         df.to_csv(results_dir / f"dual_strategy_pnl_{self.symbol}_{self.start_time[:10]}.csv")
@@ -685,10 +765,11 @@ class DualStrategyBacktest100ms:
         plt.close()
 
 def main():
-    symbol = "XRP"
-    # start_time, end_time = "2025-10-01 00:00:00", "2025-10-07 23:59:59"
-    start_time, end_time = "2025-10-14 00:00:00", "2025-10-20 23:59:59"
-    # start_time, end_time = "2025-10-22 00:00:00", "2025-10-28 23:59:59"
+    symbol, start_time, end_time = "XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+    # symbol, start_time, end_time = "XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
+    # symbol, start_time, end_time = "XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"
+    # symbol, start_time, end_time = "SOL",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+    
 
     static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     
