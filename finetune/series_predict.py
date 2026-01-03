@@ -28,13 +28,13 @@ PREDICTOR_PATH = "./outputs/models_1min/finetune_predictor_all/checkpoints/best_
 
 symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
            "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
-SYMBOL = symbols[8]
-START_TIME = "2025-10-05 00:01:00"
+SYMBOL = symbols[1]
+START_TIME = "2025-10-04 20:00:00"
 LOOKBACK_WINDOW = 240
 PRED_HORIZON = 10
 PRED_LENGTH = 30
 N_SAMPLES = 30
-note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_20251230"
+note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_1min"
 OUTPUT_DIR = Path(f"figures/series_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 

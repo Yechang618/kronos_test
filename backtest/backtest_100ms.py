@@ -55,6 +55,7 @@ class BasisArbitrageBacktest100ms:
         daily_dfs = []
         for date in date_range:
             date_str = date.strftime("%Y-%m-%d")
+            self.date_str = date_str
             filename = f"backtest_{self.symbol}_{date_str}.csv"
             filepath = data_dir / filename
             
@@ -338,7 +339,7 @@ class BasisArbitrageBacktest100ms:
         })
         pnl_df.set_index('timestamp', inplace=True)
         
-        filename = f"pnl_100ms_{self.symbol}_{self.start_time}_{self.end_time}.csv"
+        filename = f"pnl_100ms_{self.symbol}_{self.date_str}.csv"
         pnl_df.to_csv(results_dir / filename)
         return pnl_df
 
@@ -355,7 +356,7 @@ class BasisArbitrageBacktest100ms:
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(results_dir / f"pnl_100ms_{self.symbol}_{self.start_time}_{self.end_time}.png", dpi=150)
+        plt.savefig(results_dir / f"pnl_100ms_{self.symbol}_{self.date_str}.png", dpi=150)
         plt.close()
 
 def run_100ms_backtest(symbol, start_time, end_time, params):
