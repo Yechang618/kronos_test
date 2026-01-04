@@ -196,14 +196,15 @@ class DualStrategyBacktest100ms:
         """将100ms数据重采样为10分钟K线，使用正确的volume和amount定义"""
         if df_100ms.empty:
             return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume', 'amount'])
-        
+        print(df_100ms.info())
         # 确保所有需要的列都存在
         required_cols = []
         for prefix in ['spot', 'swap']:
             for level in range(3):  # 前3档
                 required_cols.extend([f"{prefix}_bid{level}_amount", f"{prefix}_ask{level}_amount"])
             required_cols.extend([f"{prefix}_bid0_price", f"{prefix}_ask0_price"])
-        
+        required_cols.extend(['basis1_price', 'basis2_price', 'basis1_volume', 'basis2_volume'])
+
         for col in required_cols:
             if col not in df_100ms.columns:
                 df_100ms[col] = np.nan
@@ -215,16 +216,18 @@ class DualStrategyBacktest100ms:
         
         # 重采样为10分钟
         resampled = df_clean.resample('10min')
+        resampled['basis'] = (df_clean['basis1_price'] + df_clean['basis2_price'])/2
         
         # 计算 Open/Close (使用 spot bid0)
-        open_prices = resampled['spot_bid0_price'].first()
-        close_prices = resampled['spot_bid0_price'].last()
+        open_prices = resampled['basis'].first()
+        close_prices = resampled['basis'].last()
         
         # 计算 High/Low (取 spot bid0, spot ask0, swap bid0, swap ask0 的极值)
-        price_cols = ['spot_bid0_price', 'spot_ask0_price', 'swap_bid0_price', 'swap_ask0_price']
-        high_prices = resampled[price_cols].max().max(axis=1)
-        low_prices = resampled[price_cols].min().min(axis=1)
-        
+        # price_cols = ['spot_bid0_price', 'spot_ask0_price', 'swap_bid0_price', 'swap_ask0_price']
+        # high_prices = resampled[price_cols].max().max(axis=1)
+        # low_prices = resampled[price_cols].min().min(axis=1)
+        high_prices = resampled['basis1'].quantile(0.95, interpolation='nearest')
+        low_prices = resampled['basis2'].quantile(0.05, interpolation='nearest')
         # 计算 Volume (合约订单簿不平衡度)
         def calculate_volume(group):
             if group.empty:

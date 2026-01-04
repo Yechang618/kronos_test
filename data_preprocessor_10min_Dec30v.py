@@ -256,9 +256,9 @@ def agg_10min(subdf):
         )
     
     # Max = basis1 的最大值（按你最初要求，而非分位数）
-    Max = subdf['basis1'].max()
+    Max = subdf['basis1'].quantile(0.95, interpolation='nearest')
     # Min = basis2 的最小值
-    Min = subdf['basis2'].min()
+    Min = subdf['basis2'].quantile(0.05, interpolation='nearest')
 
     # Open / Close: (basis1 + basis2)/2 的首尾非 NaN 值
     mid_basis = (subdf['basis1'] + subdf['basis2']) / 2
