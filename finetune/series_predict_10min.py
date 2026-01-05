@@ -26,9 +26,14 @@ from model.kronos import sample_from_logits
 TOKENIZER_PATH = "./outputs/models_10min/finetune_tokenizer_all/checkpoints/best_model"
 PREDICTOR_PATH = "./outputs/models_10min/finetune_predictor_all/checkpoints/best_model"
 
-symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
-           "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
-SYMBOL = symbols[1]
+symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
+           "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
+           "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
+           "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
+           "THE", "TON", "TRX", "TURBO",  # 30
+           "UNI", "XLM", "XRP", "ZEC", # 34
+           ] # 
+SYMBOL = symbols[0]
 START_TIME = "2025-10-04 00:00:00"
 LOOKBACK_WINDOW = 144
 PRED_HORIZON = 10

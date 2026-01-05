@@ -23,7 +23,7 @@ from model.kronos import sample_from_logits
 
 from hourly_dynamic_params import calculate_hourly_trading_params
 class DualStrategyBacktest100ms:
-    def __init__(self, symbol, start_time, end_time, static_params):
+    def __init__(self, symbol, start_time, end_time, static_params, model_name = "default"):
         """
         双策略回测：策略1（静态参数），策略2（动态预测参数）
         """
@@ -31,6 +31,7 @@ class DualStrategyBacktest100ms:
         self.start_time = start_time
         self.end_time = end_time
         self.static_params = static_params
+        self.model_name = model_name
         
         # 回测参数
         self.P1 = 1000.0  # 策略1本金
@@ -674,7 +675,7 @@ class DualStrategyBacktest100ms:
         
         # 保存基差
         basis_df = self.raw_df.loc[self.timestamps][['basis1_price', 'basis2_price']]
-        basis_df.to_csv(results_dir / f"dual_strategy_basis_{self.symbol}_{self.start_time[:10]}.csv")
+        basis_df.to_csv(results_dir / f"dual_strategy_basis_{self.symbol}_{self.start_time[:10]}_model{self.model_name}.csv")
         
         return df, basis_df
 
@@ -712,28 +713,27 @@ class DualStrategyBacktest100ms:
         ax3.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plt.savefig(results_dir / f"dual_strategy_{self.symbol}_{self.start_time[:10]}.png", dpi=150, bbox_inches='tight')
+        plt.savefig(results_dir / f"dual_strategy_{self.symbol}_{self.start_time[:10]}_model{self.model_name}.png", dpi=150, bbox_inches='tight')
         plt.close()
 
 def main():
     # symbol, start_time, end_time = "XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
     # symbol, start_time, end_time = "SOL",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
-    # symbol, start_time, end_time = "KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+    symbol, start_time, end_time = "KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
     # symbol, start_time, end_time = "DOGE",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
 
 
     # symbol, start_time, end_time = "XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
     # symbol, start_time, end_time = "KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
     # symbol, start_time, end_time = "PNUT",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"  
-    symbol, start_time, end_time = "AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"  
+    # symbol, start_time, end_time = "AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"  
 
     # symbol, start_time, end_time = "XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"
     
-  
-
+    MODEL_NAME = "v20260104"
     static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     
-    backtest = DualStrategyBacktest100ms(symbol, start_time, end_time, static_params)
+    backtest = DualStrategyBacktest100ms(symbol, start_time, end_time, static_params, model_name= MODEL_NAME)
     backtest.run_backtest()
     backtest.save_results()
     backtest.plot_results()
