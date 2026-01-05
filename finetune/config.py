@@ -23,7 +23,7 @@ class Config:
         self.batch_size = 10
         self.log_interval = 100
         self.epochs = 10
-        self.n_train_iter = 50000 * self.batch_size
+        self.n_train_iter = 100000 * self.batch_size
         self.n_val_iter = 8000 * self.batch_size
 
         self.tokenizer_learning_rate = 5e-4
