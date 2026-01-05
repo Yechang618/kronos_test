@@ -47,6 +47,7 @@ def calculate_basis_metrics(df):
     df['basis2_volume'] = np.minimum(df['swap_ask0_amount'], df['spot_bid0_amount'])
     df['basis1_volume'] = df['basis1_volume'].clip(lower=0)
     df['basis2_volume'] = df['basis2_volume'].clip(lower=0)
+    df['basis_mid_price'] = (df['basis1_price'] + df['basis2_price']) / 2
     return df
 
 def plot_basis_comparison(df, symbol, start_time, end_time, output_dir):
@@ -115,7 +116,14 @@ def load_and_process_data(symbol, date_range, load_dir, output_dir):
             print(f"  ❌ Error on {date_str}: {e}")
 
 def main():
-    symbol = "SOL"
+    symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
+           "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
+           "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
+           "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
+           "THE", "TON", "TRX", "TURBO",  # 30
+           "UNI", "XLM", "XRP", "ZEC", # 34
+           ] # 
+    symbol = symbols[9]  # "DOT"
     load_dir = Path("D:/data/datasets")
     output_dir = Path("./backtest/data")
     output_dir.mkdir(parents=True, exist_ok=True)

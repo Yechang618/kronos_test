@@ -36,7 +36,7 @@ class DualStrategyBacktest100ms:
         self.P1 = 1000.0  # 策略1本金
         self.P2 = 1000.0  # 策略2本金
         self.alpha = 0.1
-        self.beta = 0.8
+        self.beta = 0.9
         self.dt = 0.01
         
         # 交易成本
@@ -46,14 +46,14 @@ class DualStrategyBacktest100ms:
         self.c_m_spot = 0.0000825
 
         # Premium cost
-        self.premium_tt = -0.00005
-        self.premium_mt = -0.00005
+        self.premium_tt = 0.0001
+        self.premium_mt = 0.00008
 
 
         # Total cost
-        self.c_tt = self.c_t_swap + self.c_t_spot + self.premium_tt
-        self.c_tm = self.c_m_swap + self.c_m_spot + self.premium_mt  
-        self.c_mt = self.c_t_swap + self.c_m_spot + self.premium_mt
+        self.c_tt = self.c_t_swap + self.c_t_spot
+        self.c_tm = self.c_t_swap + self.c_m_spot 
+        self.c_mt = self.c_m_swap + self.c_t_spot
         
         # 仓位初始化
         self.p1_swap = self.p2_swap = 0.0
@@ -71,7 +71,9 @@ class DualStrategyBacktest100ms:
         self.raw_df = None
         
         # 动态策略参数
-        self.current_dynamic_params = [self.c_tt/2, -self.c_tt/2, self.c_mt/2, -self.c_mt/2, self.c_tm/2, -self.c_tm/2]
+        self.current_dynamic_params = [self.c_tt + self.premium_tt, -self.c_tt - self.premium_tt, 
+                                       self.c_mt + self.premium_mt, -self.c_mt - self.premium_mt, 
+                                       self.c_tm + self.premium_mt, -self.c_tm - self.premium_mt]
         self.predictor = None
         self.tokenizer = None
 
@@ -196,7 +198,7 @@ class DualStrategyBacktest100ms:
         """将100ms数据重采样为10分钟K线，使用正确的volume和amount定义"""
         if df_100ms.empty:
             return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume', 'amount'])
-        print(df_100ms.info())
+        # print(df_100ms.info())
         # 确保所有需要的列都存在
         required_cols = []
         for prefix in ['spot', 'swap']:
@@ -204,6 +206,7 @@ class DualStrategyBacktest100ms:
                 required_cols.extend([f"{prefix}_bid{level}_amount", f"{prefix}_ask{level}_amount"])
             required_cols.extend([f"{prefix}_bid0_price", f"{prefix}_ask0_price"])
         required_cols.extend(['basis1_price', 'basis2_price', 'basis1_volume', 'basis2_volume'])
+        required_cols.extend(['basis_mid_price'])
 
         for col in required_cols:
             if col not in df_100ms.columns:
@@ -211,23 +214,25 @@ class DualStrategyBacktest100ms:
         
         # 移除全 NaN 的行
         df_clean = df_100ms.dropna(subset=required_cols, how='all')
+        # df_clean['basis'] = (df_clean['basis1_price'] + df_clean['basis2_price'])/2
+        
         if df_clean.empty:
             return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume', 'amount'])
         
         # 重采样为10分钟
         resampled = df_clean.resample('10min')
-        resampled['basis'] = (df_clean['basis1_price'] + df_clean['basis2_price'])/2
+        # basis_mean = (resampled['basis1_price'] + resampled['basis2_price'])/2
         
         # 计算 Open/Close (使用 spot bid0)
-        open_prices = resampled['basis'].first()
-        close_prices = resampled['basis'].last()
+        open_prices = resampled['basis_mid_price'].first()
+        close_prices = resampled['basis_mid_price'].last()
         
         # 计算 High/Low (取 spot bid0, spot ask0, swap bid0, swap ask0 的极值)
         # price_cols = ['spot_bid0_price', 'spot_ask0_price', 'swap_bid0_price', 'swap_ask0_price']
         # high_prices = resampled[price_cols].max().max(axis=1)
         # low_prices = resampled[price_cols].min().min(axis=1)
-        high_prices = resampled['basis1'].quantile(0.95, interpolation='nearest')
-        low_prices = resampled['basis2'].quantile(0.05, interpolation='nearest')
+        high_prices = resampled['basis1_price'].quantile(0.95, interpolation='nearest')
+        low_prices = resampled['basis2_price'].quantile(0.05, interpolation='nearest')
         # 计算 Volume (合约订单簿不平衡度)
         def calculate_volume(group):
             if group.empty:
@@ -312,77 +317,6 @@ class DualStrategyBacktest100ms:
         return new_params
 
     def update_dynamic_params(self, current_time):
-        # """每10分钟更新动态交易参数"""
-        # # 获取过去144个10分钟K线（24小时）
-        # start_time = current_time - pd.Timedelta(hours=24)
-        # df_100ms = self.raw_df[start_time:current_time]
-        # print("Updating dynamic params at", current_time)
-        # print(df_100ms.info())
-        # if len(df_100ms) == 0:
-        #     return
-            
-        # df_10min = self.resample_to_10min(df_100ms)
-        # if len(df_10min) < 144 or df_10min.empty:
-        #     return
-        
-        # # 准备预测输入
-        # config = Config()
-        # feature_list = config.feature_list
-        # time_features = ['minute', 'hour', 'weekday', 'day', 'month']
-        
-        # # 取最后144根K线 - 确保是副本
-        # x_df = df_10min[-144:].copy()
-        
-        # # 安全地添加时间特征 - 避免 SettingWithCopyWarning
-        # x_df = x_df.assign(
-        #     minute=x_df.index.minute,
-        #     hour=x_df.index.hour,
-        #     weekday=x_df.index.weekday,
-        #     day=x_df.index.day,
-        #     month=x_df.index.month
-        # )
-        
-        # # 确保所有特征列存在且为数值类型
-        # for col in feature_list:
-        #     if col not in x_df.columns:
-        #         x_df[col] = np.nan
-        #     # 强制转换为 float32
-        #     x_df[col] = pd.to_numeric(x_df[col], errors='coerce')
-        
-        # x = x_df[feature_list].values.astype(np.float32)
-        # x_stamp = x_df[time_features].values.astype(np.float32)
-        
-        # # 移除包含 NaN 的行
-        # valid_mask = ~np.isnan(x).any(axis=1)
-        # if not valid_mask.any():
-        #     return
-            
-        # x = x[valid_mask]
-        # x_stamp = x_stamp[valid_mask]
-        
-        # # 如果数据不足，跳过
-        # if len(x) == 0:
-        #     return
-        
-        # # 预测未来1个10分钟K线（30个样本）
-        # N_SAMPLES = 30
-        # PRED_LENGTH = 6
-        
-        # # Normalize
-        # x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
-        # x_norm = (x - x_mean) / (x_std + 1e-5)
-        # x_norm = np.clip(x_norm, -5.0, 5.0)
-        
-        # # **关键修复：确保 y_stamp 是数值类型**
-        # last_timestamp = x_df.index[-1]
-        # y_stamp_data = np.array([[
-        #     last_timestamp.minute,
-        #     last_timestamp.hour, 
-        #     last_timestamp.weekday(),
-        #     last_timestamp.day,
-        #     last_timestamp.month
-        # ]], dtype=np.float32)  # ← 直接创建 float32 数组
-        
         # y_stamp = np.tile(y_stamp_data, (PRED_LENGTH, 1))
         """每10分钟更新动态交易参数"""
         # 获取过去144个10分钟K线（24小时）
@@ -466,11 +400,11 @@ class DualStrategyBacktest100ms:
             )
             # 反归一化
             # pred = pred * (x_std + 1e-5) + x_mean
-            print(pred.shape)
+            # print(pred.shape)
             for j in range(pred.shape[0]):
                 pred[j, :] = pred[j, :]* (x_std + 1e-5) + x_mean  # 反归一化
-            print(pred[0])
-            preds.append(pred[0])
+            # print(pred[0])
+            preds.append(pred[1])
         
         if not preds:
             return
@@ -484,16 +418,30 @@ class DualStrategyBacktest100ms:
         low_std = np.std(preds[:, 2])
         
         # 计算动态中点
-        dynamic_midpoint = (high_mean + high_std + low_mean - low_std) / 2
-        
+        # dynamic_midpoint = (high_mean + high_std + low_mean - low_std) / 2
+        high_estimate = high_mean + high_std
+        low_estimate = low_mean - low_std
+        c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_dynamic_params
+        d = 0
+        if high_estimate >= c_mt_high and low_estimate <= c_mt_low:
+            d = 0
+        elif high_estimate <= c_mt_high and low_estimate >= c_mt_low:
+            d = 0
+        elif high_estimate > c_mt_high and low_estimate >= c_mt_low:
+            d = high_estimate - c_mt_high
+        elif high_estimate <= c_mt_high and low_estimate < c_mt_low:
+            d = low_estimate - c_mt_low
+        else:
+            print("Unexpected case in dynamic param adjustment")
+            print(high_estimate, low_estimate, c_mt_high, c_mt_low)
+        if d == 0:
+            print("No adjustment to dynamic params")
+            print(high_estimate, low_estimate, c_mt_high, c_mt_low)
         # 设置动态参数
         self.current_dynamic_params = [
-            dynamic_midpoint + self.c_tt/2,
-            dynamic_midpoint - self.c_tt/2,
-            dynamic_midpoint + self.c_mt/2,
-            dynamic_midpoint - self.c_mt/2,
-            dynamic_midpoint + self.c_tm/2,
-            dynamic_midpoint - self.c_tm/2
+            c_tt_high + d, c_tt_low + d,
+            c_mt_high + d, c_mt_low + d,
+            c_tm_high + d, c_tm_low + d
         ]
 
     def get_price_with_slippage(self, price_col, next_price_col, timestamp):
@@ -541,17 +489,17 @@ class DualStrategyBacktest100ms:
             P, p_swap, p_spot, P_swap = self.P2, self.p2_swap, self.p2_spot, self.P2_swap
             
         # 开仓检查（三种模式）
-        if (row['basis1_price']*row['spot_ask0_price'] > tt_open and P > 0):
+        if (row['basis1_price'] > tt_open and P > 0):
             trade_type = 'A'
-        elif (row['basis1_price']*row['spot_ask0_price'] > mt_open and P > 0):
+        elif (row['basis1_price'] > mt_open and P > 0):
             trade_type = 'B'
-        elif (row['basis1_price']*row['spot_ask0_price'] > tm_open and P > 0):
+        elif (row['basis1_price'] > tm_open and P > 0):
             trade_type = 'C'
-        elif (row['basis2_price']*row['spot_bid0_price'] < tt_close and p_swap < 0):
+        elif (row['basis2_price'] < tt_close and p_swap < 0):
             trade_type = 'close_A'
-        elif (row['basis2_price']*row['spot_bid0_price'] < mt_close and p_swap < 0):
+        elif (row['basis2_price'] < mt_close and p_swap < 0):
             trade_type = 'close_B'
-        elif (row['basis2_price']*row['spot_bid0_price'] < tm_close and p_swap < 0):
+        elif (row['basis2_price'] < tm_close and p_swap < 0):
             trade_type = 'close_C'
         else:
             return False
@@ -574,7 +522,7 @@ class DualStrategyBacktest100ms:
                 new_p_swap = p_swap + z
                 new_p_spot = p_spot - z
                 new_P_swap = P_swap - swap_price * z
-                new_P = P + (spot_price - self.c_t_swap - self.c_t_spot) * z
+                new_P = P + (spot_price - self.c_t_swap*swap_price - self.c_t_spot*spot_price) * z
             elif trade_type == 'close_B':
                 future_spot_bid0 = self.get_future_price('spot_bid0_price', timestamp, 1)
                 future_spot_bid1 = self.get_future_price('spot_bid1_price', timestamp, 1)
@@ -584,7 +532,7 @@ class DualStrategyBacktest100ms:
                 new_p_swap = p_swap + z
                 new_p_spot = p_spot - z
                 new_P_swap = P_swap - row['swap_ask0_price'] * z
-                new_P = P + (spot_price - self.c_m_swap - self.c_t_spot) * z
+                new_P = P + (spot_price - self.c_m_swap*row['swap_ask0_price'] - self.c_t_spot*spot_price) * z
             else:  # close_C
                 future_swap_ask0 = self.get_future_price('swap_ask0_price', timestamp, 1)
                 future_swap_ask1 = self.get_future_price('swap_ask1_price', timestamp, 1)
@@ -594,7 +542,7 @@ class DualStrategyBacktest100ms:
                 new_p_swap = p_swap + z
                 new_p_spot = p_spot - z
                 new_P_swap = P_swap - swap_price * z
-                new_P = P + (row['spot_bid0_price'] - self.c_t_swap - self.c_m_spot) * z
+                new_P = P + (row['spot_bid0_price'] - self.c_t_swap*swap_price - self.c_m_spot*row['spot_bid0_price']) * z
         else:
             # 开仓逻辑
             if pd.isna(row['spot_ask0_price']) or pd.isna(row['basis1_volume']) or row['spot_ask0_price'] <= 0:
@@ -611,7 +559,7 @@ class DualStrategyBacktest100ms:
                 new_p_swap = p_swap - z
                 new_p_spot = p_spot + z
                 new_P_swap = P_swap + swap_price * z
-                new_P = P - (spot_price + self.c_t_swap + self.c_t_spot) * z
+                new_P = P - (spot_price + self.c_t_swap*swap_price + self.c_t_spot*spot_price) * z
             elif trade_type == 'B':
                 future_spot_ask0 = self.get_future_price('spot_ask0_price', timestamp, 1)
                 future_spot_ask1 = self.get_future_price('spot_ask1_price', timestamp, 1)
@@ -621,7 +569,7 @@ class DualStrategyBacktest100ms:
                 new_p_swap = p_swap - z
                 new_p_spot = p_spot + z
                 new_P_swap = P_swap + row['swap_bid0_price'] * z
-                new_P = P - (spot_price + self.c_m_swap + self.c_t_spot) * z
+                new_P = P - (spot_price + self.c_m_swap*row['swap_bid0_price'] + self.c_t_spot*spot_price) * z
             else:  # 'C'
                 future_swap_bid0 = self.get_future_price('swap_bid0_price', timestamp, 1)
                 future_swap_bid1 = self.get_future_price('swap_bid1_price', timestamp, 1)
@@ -631,7 +579,7 @@ class DualStrategyBacktest100ms:
                 new_p_swap = p_swap - z
                 new_p_spot = p_spot + z
                 new_P_swap = P_swap + swap_price * z
-                new_P = P - (row['spot_ask0_price'] + self.c_t_swap + self.c_m_spot) * z
+                new_P = P - (row['spot_ask0_price'] + self.c_t_swap*swap_price + self.c_m_spot*row['spot_ask0_price']) * z
         
         # 更新仓位
         if strategy == 1:
@@ -672,7 +620,7 @@ class DualStrategyBacktest100ms:
                 
             # 策略1：每小时更新
             if (last_update_time_1 is None or 
-                second_timestamp - last_update_time_1 >= pd.Timedelta(hours=1)):
+                second_timestamp - last_update_time_1 >= pd.Timedelta(minutes=10)):
                 self.strategy1_params = self.update_strategy1_params(second_timestamp)
                 last_update_time_1 = second_timestamp
                 
@@ -749,8 +697,8 @@ class DualStrategyBacktest100ms:
         ax1.grid(True, alpha=0.3)
         
         # 基差
-        ax2.plot(basis_df.index, basis_df['basis1_price'], label='Basis1', color='orange')
-        ax2.plot(basis_df.index, basis_df['basis2_price'], label='Basis2', color='green')
+        ax2.scatter(basis_df.index, basis_df['basis1_price'], label='Basis1', color='orange', s=10)
+        ax2.scatter(basis_df.index, basis_df['basis2_price'], label='Basis2', color='green', s=10)
         ax2.set_ylabel('Basis')
         ax2.legend()
         ax2.grid(True, alpha=0.3)
@@ -768,11 +716,20 @@ class DualStrategyBacktest100ms:
         plt.close()
 
 def main():
-    symbol, start_time, end_time = "XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
-    # symbol, start_time, end_time = "XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
-    # symbol, start_time, end_time = "XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"
+    # symbol, start_time, end_time = "XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
     # symbol, start_time, end_time = "SOL",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+    # symbol, start_time, end_time = "KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+    # symbol, start_time, end_time = "DOGE",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+
+
+    # symbol, start_time, end_time = "XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
+    # symbol, start_time, end_time = "KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
+    # symbol, start_time, end_time = "PNUT",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"  
+    symbol, start_time, end_time = "AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"  
+
+    # symbol, start_time, end_time = "XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"
     
+  
 
     static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     

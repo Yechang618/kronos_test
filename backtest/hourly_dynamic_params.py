@@ -42,13 +42,13 @@ def calculate_hourly_trading_params(df, a, b,
         return [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     
     # 计算交易参数
-    tt_open = avg_basis1 + a + (c_t_swap + c_t_spot) / avg_spot_ask0
-    tt_close = avg_basis2 - a - (c_t_swap - c_t_spot) / avg_spot_bid0
+    tt_open = avg_basis1 + a + (c_t_swap + c_t_spot) 
+    tt_close = avg_basis2 - a - (c_t_swap + c_t_spot) 
     
-    mt_open = avg_basis1 + b + (c_m_swap + c_t_spot) / avg_spot_ask0
-    mt_close = avg_basis2 - b - (c_m_swap - c_t_spot) / avg_spot_bid0
+    mt_open = avg_basis1 + b + (c_m_swap + c_t_spot) 
+    mt_close = avg_basis2 - b - (c_m_swap + c_t_spot) 
     
-    tm_open = avg_basis1 + b + (c_t_swap + c_m_spot) / avg_spot_ask0
-    tm_close = avg_basis2 - b - (c_t_swap - c_m_spot) / avg_spot_bid0
+    tm_open = avg_basis1 + b + (c_t_swap + c_m_spot) 
+    tm_close = avg_basis2 - b - (c_t_swap + c_m_spot) 
     
     return [tt_open, tt_close, mt_open, mt_close, tm_open, tm_close]

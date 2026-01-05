@@ -12,10 +12,15 @@ load_dir = Path("D:/data/datasets")
 processed_dir = base_dir / "processed"
 processed_dir.mkdir(parents=True, exist_ok=True)
 
-symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
-           "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
-# symbol = "SOL"
-symbol = symbols[0]
+symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
+           "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
+           "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
+           "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 27
+           "THE", "TON", "TRX", "TURBO",  # 31
+           "UNI", "XLM", "XRP", "ZEC", # 35
+           ] # 
+# symbol = "SOL" # 26
+symbol = symbols[5]
 quote = "USDT"
 pair = f"{symbol}{quote}"
 
@@ -310,5 +315,5 @@ for month_start, month_df in grouped_basis:
         print(f"📈 Saving 10-min basis: {year_month}")
         month_df.to_csv(out_file, compression="gzip")
 
-print(f"\n🎉 Done! Processed {len(valid_dates)} days.")
+print(f"\n🎉 Done! Processed {symbol} {len(valid_dates)} days.")
 print(f" → 10-minute basis files saved in '{basis_dir}'")
