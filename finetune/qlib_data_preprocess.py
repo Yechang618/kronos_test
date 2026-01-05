@@ -7,8 +7,13 @@ from config import Config
 TASK_NAME = "task4"
 
 def main():
-    symbols = ["SOL", "BNB", "ZEC", "KAITO", "DOT", "ETH", "BTC", "LTC", "XRP", "ADA", "DOGE", "AVAX", "ETC", "TAO", # 13
-            "CHESS", "COMP", "LINK", "TON", "AIXBT", "BCH", "ETH", "FET", "OM", "ONDO"] # 23
+    symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
+            "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
+            "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
+            "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
+            "THE", "TON", "TRX", "TURBO",  # 30
+            "UNI", "XLM", "XRP", "ZEC", # 34
+            ] # 
     # config = Config()
     train_val_start = "2025-01-01"
     train_val_end = "2025-09-30"
