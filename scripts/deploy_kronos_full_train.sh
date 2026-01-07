@@ -7,7 +7,7 @@ set -e  # 遇错立即退出
 # ==========================
 # 🔧 配置区（根据你的环境调整）
 # ==========================
-USER_NAME= "huazhang"
+USER_NAME=$(whoami)
 HOME_DIR="/home/$USER_NAME"
 PROJECT_DIR="$HOME_DIR/kucoin_project/kronos_test"
 VENV_PATH="$PROJECT_DIR/kronos_env"
@@ -21,7 +21,7 @@ LAUNCHER_SCRIPT="$SCRIPT_DIR/run_full_training.sh"
 # 🛠️ 部署流程开始
 # ==========================
 
-echo "🚀 开始部署 Kronos 完整训练流程(Tokenizer → Predictor)..."
+echo "🚀 开始部署 Kronos 完整训练流程Tokenizer → Predictor)..."
 
 # 1. 创建脚本目录
 mkdir -p "$SCRIPT_DIR"
