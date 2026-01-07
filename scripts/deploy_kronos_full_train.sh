@@ -7,7 +7,7 @@ set -e  # 遇错立即退出
 # ==========================
 # 🔧 配置区（根据你的环境调整）
 # ==========================
-USER_NAME=$(huazhang)
+USER_NAME= "huazhang"
 HOME_DIR="/home/$USER_NAME"
 PROJECT_DIR="$HOME_DIR/kucoin_project/kronos_test"
 VENV_PATH="$PROJECT_DIR/kronos_env"
