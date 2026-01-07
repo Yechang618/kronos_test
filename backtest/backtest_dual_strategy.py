@@ -47,8 +47,8 @@ class DualStrategyBacktest100ms:
         self.c_m_spot = 0.0000825
 
         # Premium cost
-        self.premium_tt = 0.0001
-        self.premium_mt = 0.00008
+        self.premium_tt = 0.001
+        self.premium_mt = 0.0005
 
 
         # Total cost
@@ -73,6 +73,9 @@ class DualStrategyBacktest100ms:
         
         # 动态策略参数
         self.current_dynamic_params = [self.c_tt + self.premium_tt, -self.c_tt - self.premium_tt, 
+                                       self.c_mt + self.premium_mt, -self.c_mt - self.premium_mt, 
+                                       self.c_tm + self.premium_mt, -self.c_tm - self.premium_mt]
+        self.strategy1_params = [self.c_tt + self.premium_tt, -self.c_tt - self.premium_tt, 
                                        self.c_mt + self.premium_mt, -self.c_mt - self.premium_mt, 
                                        self.c_tm + self.premium_mt, -self.c_tm - self.premium_mt]
         self.predictor = None
@@ -300,7 +303,7 @@ class DualStrategyBacktest100ms:
         """每小时为策略1更新动态参数"""
         # 获取过去1小时的数据
         start_time = current_time - pd.Timedelta(hours=1)
-        hourly_data = self.raw_df[start_time:current_time]
+        hourly_data = self.raw_df[(start_time- pd.Timedelta(minutes=10)):(current_time- pd.Timedelta(minutes=10))]
         
         if len(hourly_data) == 0:
             return
@@ -308,8 +311,8 @@ class DualStrategyBacktest100ms:
         # 使用策略函数计算参数
         new_params = calculate_hourly_trading_params(
             hourly_data, 
-            a=0.001,  # 你可以调整这些参数
-            b=0.0008,
+            a=self.premium_tt,  # 你可以调整这些参数
+            b=self.premium_mt,
             c_t_swap=self.c_t_swap,
             c_t_spot=self.c_t_spot,
             c_m_swap=self.c_m_swap,
@@ -322,17 +325,19 @@ class DualStrategyBacktest100ms:
         """每10分钟更新动态交易参数"""
         # 获取过去144个10分钟K线（24小时）
         # 预测未来1个10分钟K线（30个样本）
+        LOOKBACK = 240
+        nHour = LOOKBACK // 6  # 10分钟K线，每小时6根
         N_SAMPLES = 30
-        PRED_LENGTH = 6
-        start_time = current_time - pd.Timedelta(hours=24)
-        df_100ms = self.raw_df[start_time:current_time+ pd.Timedelta(hours=1)]
+        PRED_LENGTH = 1
+        start_time = current_time - pd.Timedelta(hours=nHour)
+        df_100ms = self.raw_df[start_time:current_time+ pd.Timedelta(minutes=10*PRED_LENGTH)]
         # print("Updating dynamic params at", current_time)
         # print(df_100ms.info())
         if len(df_100ms) == 0:
             return
             
         df_10min = self.resample_to_10min(df_100ms)
-        if len(df_10min) < 144 + PRED_LENGTH or df_10min.empty:
+        if len(df_10min) < LOOKBACK + PRED_LENGTH or df_10min.empty:
             return
         
         # 准备预测输入
@@ -341,7 +346,7 @@ class DualStrategyBacktest100ms:
         time_features = ['minute', 'hour', 'weekday', 'day', 'month']
         
         # 取最后144根K线 - 确保是副本
-        x_df = df_10min[-144-PRED_LENGTH:-PRED_LENGTH].copy()
+        x_df = df_10min[-LOOKBACK-PRED_LENGTH:-PRED_LENGTH].copy()
         y_df = df_10min[-PRED_LENGTH:].copy()
         # 安全地添加时间特征 - 避免 SettingWithCopyWarning
         x_df = x_df.assign(
@@ -405,7 +410,7 @@ class DualStrategyBacktest100ms:
             for j in range(pred.shape[0]):
                 pred[j, :] = pred[j, :]* (x_std + 1e-5) + x_mean  # 反归一化
             # print(pred[0])
-            preds.append(pred[1])
+            preds.append(pred[0])
         
         if not preds:
             return
@@ -424,9 +429,13 @@ class DualStrategyBacktest100ms:
         low_estimate = low_mean - low_std
         c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_dynamic_params
         d = 0
-        if high_estimate >= c_mt_high and low_estimate <= c_mt_low:
-            d = 0
+        if high_estimate - low_estimate > c_mt_high - c_mt_low:
+            d = (high_estimate - low_estimate - (c_mt_high - c_mt_low)) / 2
+        # else:
+        # if high_estimate >= c_mt_high and c_mt_low >= low_estimate:
+        #     d = 0
         elif high_estimate <= c_mt_high and low_estimate >= c_mt_low:
+            # d = 0.1*(high_estimate - low_estimate - (c_mt_high - c_mt_low)) / 2
             d = 0
         elif high_estimate > c_mt_high and low_estimate >= c_mt_low:
             d = high_estimate - c_mt_high
@@ -435,9 +444,9 @@ class DualStrategyBacktest100ms:
         else:
             print("Unexpected case in dynamic param adjustment")
             print(high_estimate, low_estimate, c_mt_high, c_mt_low)
-        if d == 0:
-            print("No adjustment to dynamic params")
-            print(high_estimate, low_estimate, c_mt_high, c_mt_low)
+        # if d == 0:
+        #     print("No adjustment to dynamic params")
+        #     print(high_estimate, low_estimate, c_mt_high, c_mt_low)
         # 设置动态参数
         self.current_dynamic_params = [
             c_tt_high + d, c_tt_low + d,
@@ -490,18 +499,18 @@ class DualStrategyBacktest100ms:
             P, p_swap, p_spot, P_swap = self.P2, self.p2_swap, self.p2_spot, self.P2_swap
             
         # 开仓检查（三种模式）
-        if (row['basis1_price'] > tt_open and P > 0):
-            trade_type = 'A'
-        elif (row['basis1_price'] > mt_open and P > 0):
-            trade_type = 'B'
+        if (row['basis1_price'] > mt_open and P > 0):
+            trade_type = 'B'        
         elif (row['basis1_price'] > tm_open and P > 0):
-            trade_type = 'C'
-        elif (row['basis2_price'] < tt_close and p_swap < 0):
-            trade_type = 'close_A'
+            trade_type = 'C'            
+        elif (row['basis1_price'] > tt_open and P > 0):
+            trade_type = 'A'
         elif (row['basis2_price'] < mt_close and p_swap < 0):
             trade_type = 'close_B'
         elif (row['basis2_price'] < tm_close and p_swap < 0):
             trade_type = 'close_C'
+        elif (row['basis2_price'] < tt_close and p_swap < 0):
+            trade_type = 'close_A'            
         else:
             return False
             
@@ -621,19 +630,22 @@ class DualStrategyBacktest100ms:
                 
             # 策略1：每小时更新
             if (last_update_time_1 is None or 
-                second_timestamp - last_update_time_1 >= pd.Timedelta(minutes=10)):
-                self.strategy1_params = self.update_strategy1_params(second_timestamp)
+                second_timestamp - last_update_time_1 >= pd.Timedelta(minutes=30)):
+                new_params = self.update_strategy1_params(second_timestamp)
+                if new_params is not None:
+                    self.strategy1_params = new_params
                 last_update_time_1 = second_timestamp
                 
             # 策略2：每10分钟更新（保持原有逻辑）
             if (last_update_time_2 is None or 
-                second_timestamp - last_update_time_2 >= pd.Timedelta(minutes=10)):
+                second_timestamp - last_update_time_2 >= pd.Timedelta(minutes=30)):
                 self.update_dynamic_params(second_timestamp)  # 这是策略2的更新
                 last_update_time_2 = second_timestamp
             
             # 执行交易时使用各自的参数
             trade_executed_1 = trade_executed_2 = False
             for timestamp in second_group.index:
+                # print(f"Processing timestamp: {timestamp}")
                 if not trade_executed_1:
                     if self.execute_trade(1, timestamp, self.strategy1_params):
                         trade_executed_1 = True
@@ -650,7 +662,8 @@ class DualStrategyBacktest100ms:
             pnl1 = self.calculate_pnl(last_timestamp, 1)
             pnl2 = self.calculate_pnl(last_timestamp, 2)
             
-
+            if trade_executed_1 or trade_executed_2:
+                print(f"Time: {last_timestamp}, Strategy1 PnL: {pnl1}, Strategy2 PnL: {pnl2}")
             if not pd.isna(pnl1) and not pd.isna(pnl2):
                 self.pnl1_history.append(pnl1)
                 self.pnl2_history.append(pnl2)
@@ -700,7 +713,9 @@ class DualStrategyBacktest100ms:
         # 基差
         ax2.scatter(basis_df.index, basis_df['basis1_price'], label='Basis1', color='orange', s=10)
         ax2.scatter(basis_df.index, basis_df['basis2_price'], label='Basis2', color='green', s=10)
-        ax2.set_ylabel('Basis')
+        ax2.plot(self.timestamps, self.params1_history, label='Strategy 1 (Static)', color='blue')
+        ax2.plot(self.timestamps, self.params2_history, label='Strategy 2 (Dynamic)', color='red')        
+        ax2.set_ylabel('Basis and strategy center')
         ax2.legend()
         ax2.grid(True, alpha=0.3)
         
@@ -719,27 +734,38 @@ class DualStrategyBacktest100ms:
 def main():
     # symbol, start_time, end_time = "XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
     # symbol, start_time, end_time = "SOL",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
-    symbol, start_time, end_time = "KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
+    # symbol, start_time, end_time = "KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
     # symbol, start_time, end_time = "DOGE",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"
 
 
     # symbol, start_time, end_time = "XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
-    # symbol, start_time, end_time = "KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
+    symbol, start_time, end_time = "KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"
     # symbol, start_time, end_time = "PNUT",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"  
     # symbol, start_time, end_time = "AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"  
 
     # symbol, start_time, end_time = "XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"
     
-    MODEL_NAME = "v20260104"
+    experiments = [["AVAX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"], # Section 1
+                   ["KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
+                   ["DOGE",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
+                   ["XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"], 
+                   ["AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"], # Section 2
+                   ["KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"]  # Section 3                 
+                   ]
+    MODEL_NAME = "v20260104_2"
     static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     
-    backtest = DualStrategyBacktest100ms(symbol, start_time, end_time, static_params, model_name= MODEL_NAME)
-    backtest.run_backtest()
-    backtest.save_results()
-    backtest.plot_results()
-    
-    print(f"Final PnL - Strategy 1: {backtest.pnl1_history[-1]:.2f}")
-    print(f"Final PnL - Strategy 2: {backtest.pnl2_history[-1]:.2f}")
+    for symbol, start_time, end_time in experiments:
+        print(f"Running backtest for {symbol} from {start_time} to {end_time}...")
+        backtest = DualStrategyBacktest100ms(symbol, start_time, end_time, static_params, model_name= MODEL_NAME)
+        backtest.run_backtest()
+        backtest.save_results()
+        backtest.plot_results()
+        
+        print(f"Final PnL - Strategy 1: {backtest.pnl1_history[-1]:.2f}")
+        print(f"Final PnL - Strategy 2: {backtest.pnl2_history[-1]:.2f}")
 
 if __name__ == "__main__":
     main()

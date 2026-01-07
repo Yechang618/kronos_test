@@ -33,12 +33,12 @@ symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "THE", "TON", "TRX", "TURBO",  # 30
            "UNI", "XLM", "XRP", "ZEC", # 34
            ] # 
-SYMBOL = symbols[0]
+SYMBOL = symbols[12]
 START_TIME = "2025-10-05 00:00:00"
-LOOKBACK_WINDOW = 240
-PRED_HORIZON = 120
-PRED_LENGTH = 30
-N_SAMPLES = 50
+LOOKBACK_WINDOW = 144
+PRED_HORIZON = 60
+PRED_LENGTH = 1
+N_SAMPLES = 30
 note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_10min"
 OUTPUT_DIR = Path(f"figures/step_by_step_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
@@ -318,35 +318,95 @@ def main():
     # ==============================
     # 绘图：第一张图（3,1）—— 价格和量能
     # ==============================
-    fig1, axes1 = plt.subplots(3, 1, figsize=(12, 12), sharex=True)
+    # fig1, axes1 = plt.subplots(3, 1, figsize=(12, 12), sharex=True)
 
-    # (0) Close
+    # # (0) Close
+    # ax = axes1[0]
+    # ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Close')
+    # ax.plot(y_time, pred_mean[:, 3], 'o-', color='red', linewidth=2, label='Predicted Mean')
+    # ax.fill_between(
+    #     y_time,
+    #     pred_mean[:, 3] - pred_std[:, 3],
+    #     pred_mean[:, 3] + pred_std[:, 3],
+    #     color='lightcoral', alpha=0.4, label='±1 std'
+    # )
+    # ax.set_ylabel('Close')
+    # ax.legend()
+    # ax.grid(True, linestyle=':', alpha=0.7)
+
+    # # (1) High and Low
+    # # ax = axes1[1]
+    # # High
+    # ax.plot(y_time, true_y_values[:, 1], color='black', linewidth=1.5, label='True High')
+    # ax.plot(y_time, pred_mean[:, 1], 'o-', color='red', linewidth=2, label='Predicted High Mean')
+    # ax.fill_between(
+    #     y_time,
+    #     pred_mean[:, 1] - pred_std[:, 1],
+    #     pred_mean[:, 1] + pred_std[:, 1],
+    #     color='lightcoral', alpha=0.3
+    # )
+    # # Low
+    # ax.plot(y_time, true_y_values[:, 2], color='purple', linewidth=1.5, label='True Low')
+    # ax.plot(y_time, pred_mean[:, 2], 'o-', color='blue', linewidth=2, label='Predicted Low Mean')
+    # ax.fill_between(
+    #     y_time,
+    #     pred_mean[:, 2] - pred_std[:, 2],
+    #     pred_mean[:, 2] + pred_std[:, 2],
+    #     color='lightblue', alpha=0.3
+    # )
+    # ax.set_ylabel('High / Low')
+    # ax.legend()
+    # ax.grid(True, linestyle=':', alpha=0.7)
+
+    # # (2) Volume and Amount
+    # ax = axes1[1]
+    # # Volume
+    # ax.plot(y_time, true_y_values[:, 4], color='black', linewidth=1.5, label='True Volume')
+    # ax.plot(y_time, pred_mean[:, 4], 'o-', color='red', linewidth=2, label='Predicted Volume Mean')
+    # ax.fill_between(
+    #     y_time,
+    #     pred_mean[:, 4] - pred_std[:, 4],
+    #     pred_mean[:, 4] + pred_std[:, 4],
+    #     color='lightcoral', alpha=0.3
+    # )
+    # # Amount
+    # ax.plot(y_time, true_y_values[:, 5], color='purple', linewidth=1.5, label='True Amount')
+    # ax.plot(y_time, pred_mean[:, 5], 'o-', color='blue', linewidth=2, label='Predicted Amount Mean')
+    # ax.fill_between(
+    #     y_time,
+    #     pred_mean[:, 5] - pred_std[:, 5],
+    #     pred_mean[:, 5] + pred_std[:, 5],
+    #     color='lightblue', alpha=0.3
+    # )
+    # ax.set_ylabel('Volume / Amount')
+    # ax.set_xlabel('Time')
+    # ax.legend()
+    # ax.grid(True, linestyle=':', alpha=0.7)
+    # plt.xticks(rotation=45)
+        # (0) Close
+    fig1, axes1 = plt.subplots(2, 1, figsize=(12, 12), sharex=True)        
     ax = axes1[0]
-    ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Close')
-    ax.plot(y_time, pred_mean[:, 3], 'o-', color='red', linewidth=2, label='Predicted Mean')
+    ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Basis')
+    ax.plot(y_time, pred_mean[:, 3], 'o-', color='red', linewidth=2, label='Predicted Basis Mean')
     ax.fill_between(
         y_time,
         pred_mean[:, 3] - pred_std[:, 3],
         pred_mean[:, 3] + pred_std[:, 3],
         color='lightcoral', alpha=0.4, label='±1 std'
     )
-    ax.set_ylabel('Close')
-    ax.legend()
-    ax.grid(True, linestyle=':', alpha=0.7)
 
-    # (1) High and Low
-    ax = axes1[1]
+    # # (1) High and Low
     # High
-    ax.plot(y_time, true_y_values[:, 1], color='black', linewidth=1.5, label='True High')
-    ax.plot(y_time, pred_mean[:, 1], 'o-', color='red', linewidth=2, label='Predicted High Mean')
+    ax.plot(y_time, true_y_values[:, 1], color='purple', linewidth=1.5, label='True High')
+    ax.plot(y_time, pred_mean[:, 1], 'o-', color='green', linewidth=2, label='Predicted High Mean')
     ax.fill_between(
         y_time,
         pred_mean[:, 1] - pred_std[:, 1],
         pred_mean[:, 1] + pred_std[:, 1],
-        color='lightcoral', alpha=0.3
+        color='lightgreen', alpha=0.3
     )
     # Low
-    ax.plot(y_time, true_y_values[:, 2], color='purple', linewidth=1.5, label='True Low')
+    ax.plot(y_time, true_y_values[:, 2], color='darkgoldenrod', linewidth=1.5, label='True Low')
     ax.plot(y_time, pred_mean[:, 2], 'o-', color='blue', linewidth=2, label='Predicted Low Mean')
     ax.fill_between(
         y_time,
@@ -354,15 +414,15 @@ def main():
         pred_mean[:, 2] + pred_std[:, 2],
         color='lightblue', alpha=0.3
     )
-    ax.set_ylabel('High / Low')
+    ax.set_ylabel('Basis, Bid High, Ask Low')
     ax.legend()
     ax.grid(True, linestyle=':', alpha=0.7)
 
     # (2) Volume and Amount
-    ax = axes1[2]
+    ax = axes1[1]
     # Volume
-    ax.plot(y_time, true_y_values[:, 4], color='black', linewidth=1.5, label='True Volume')
-    ax.plot(y_time, pred_mean[:, 4], 'o-', color='red', linewidth=2, label='Predicted Volume Mean')
+    ax.plot(y_time, true_y_values[:, 4], color='black', linewidth=1.5, label='True Swap Log(Bid/Ask)')
+    ax.plot(y_time, pred_mean[:, 4], 'o-', color='red', linewidth=2, label='Predicted Mean')
     ax.fill_between(
         y_time,
         pred_mean[:, 4] - pred_std[:, 4],
@@ -370,20 +430,20 @@ def main():
         color='lightcoral', alpha=0.3
     )
     # Amount
-    ax.plot(y_time, true_y_values[:, 5], color='purple', linewidth=1.5, label='True Amount')
-    ax.plot(y_time, pred_mean[:, 5], 'o-', color='blue', linewidth=2, label='Predicted Amount Mean')
+    ax.plot(y_time, true_y_values[:, 5], color='purple', linewidth=1.5, label='True Spot Log(Bid/Ask)')
+    ax.plot(y_time, pred_mean[:, 5], 'o-', color='blue', linewidth=2, label='Predicted Mean')
     ax.fill_between(
         y_time,
         pred_mean[:, 5] - pred_std[:, 5],
         pred_mean[:, 5] + pred_std[:, 5],
         color='lightblue', alpha=0.3
     )
-    ax.set_ylabel('Volume / Amount')
+    ax.set_ylabel('Orderbook Balance')
     ax.set_xlabel('Time')
     ax.legend()
     ax.grid(True, linestyle=':', alpha=0.7)
     plt.xticks(rotation=45)
-
+    
     fig1.suptitle(f'{SYMBOL} - Price and Volume Prediction (N={N_SAMPLES})')
     fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_price_volume.png", dpi=150)
@@ -392,34 +452,34 @@ def main():
     # ==============================
     # 绘图：第二张图（K,1）—— Trend Components
     # ==============================
-    n_trends = pred_trend_mean.shape[1]
-    if n_trends > 0:
-        fig2, axes2 = plt.subplots(n_trends, 1, figsize=(12, 4 * n_trends), sharex=True)
-        if n_trends == 1:
-            axes2 = [axes2]  # Ensure list for single subplot
+    # n_trends = pred_trend_mean.shape[1]
+    # if n_trends > 0:
+    #     fig2, axes2 = plt.subplots(n_trends, 1, figsize=(12, 4 * n_trends), sharex=True)
+    #     if n_trends == 1:
+    #         axes2 = [axes2]  # Ensure list for single subplot
 
-        for k in range(n_trends):
-            ax = axes2[k]
-            ax.plot(y_time, pred_trend_mean[:, k], 'o-', color='blue', linewidth=2, label=f'Trend {k+1} Mean')
-            ax.fill_between(
-                y_time,
-                pred_trend_mean[:, k] - pred_trend_std[:, k],
-                pred_trend_mean[:, k] + pred_trend_std[:, k],
-                color='lightblue', alpha=0.4, label='±1 std'
-            )
-            ax.axvline(x=x_time[-1], color='gray', linestyle='--', alpha=0.7)
-            ax.set_ylabel(f'Trend {k+1}')
-            ax.legend()
-            ax.grid(True, linestyle=':', alpha=0.7)
+    #     for k in range(n_trends):
+    #         ax = axes2[k]
+    #         ax.plot(y_time, pred_trend_mean[:, k], 'o-', color='blue', linewidth=2, label=f'Trend {k+1} Mean')
+    #         ax.fill_between(
+    #             y_time,
+    #             pred_trend_mean[:, k] - pred_trend_std[:, k],
+    #             pred_trend_mean[:, k] + pred_trend_std[:, k],
+    #             color='lightblue', alpha=0.4, label='±1 std'
+    #         )
+    #         ax.axvline(x=x_time[-1], color='gray', linestyle='--', alpha=0.7)
+    #         ax.set_ylabel(f'Trend {k+1}')
+    #         ax.legend()
+    #         ax.grid(True, linestyle=':', alpha=0.7)
 
-        axes2[-1].set_xlabel('Time')
-        plt.xticks(rotation=45)
-        fig2.suptitle(f'{SYMBOL} - Trend Components (N={N_SAMPLES})')
-        fig2.tight_layout(rect=[0, 0.03, 1, 0.95])
-        fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_trend_components.png", dpi=150)
-        plt.close(fig2)
-    else:
-        print("⚠️ No trend components to plot.")
+    #     axes2[-1].set_xlabel('Time')
+    #     plt.xticks(rotation=45)
+    #     fig2.suptitle(f'{SYMBOL} - Trend Components (N={N_SAMPLES})')
+    #     fig2.tight_layout(rect=[0, 0.03, 1, 0.95])
+    #     fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_trend_components.png", dpi=150)
+    #     plt.close(fig2)
+    # else:
+    #     print("⚠️ No trend components to plot.")
 
     print(f"✅ All plots saved to {OUTPUT_DIR.absolute()}")
 

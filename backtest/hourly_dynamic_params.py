@@ -39,7 +39,9 @@ def calculate_hourly_trading_params(df, a, b,
     if (avg_spot_ask0 <= 0 or avg_spot_bid0 <= 0 or 
         pd.isna(avg_basis1) or pd.isna(avg_basis2)):
         # 返回默认保守参数
-        return [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
+        return [a + (c_t_swap + c_t_spot), -a - (c_t_swap + c_t_spot), 
+                b + (c_m_swap + c_t_spot), -b - (c_m_swap + c_t_spot), 
+                b + (c_t_swap + c_m_spot), -b - (c_t_swap + c_m_spot)]
     
     # 计算交易参数
     tt_open = avg_basis1 + a + (c_t_swap + c_t_spot) 
