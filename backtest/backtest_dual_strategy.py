@@ -39,6 +39,7 @@ class DualStrategyBacktest100ms:
         self.alpha = 0.1
         self.beta = 0.9
         self.dt = 0.01
+        self.reference_hours = 24
         
         # 交易成本
         self.c_t_swap = 0.000153
@@ -47,8 +48,8 @@ class DualStrategyBacktest100ms:
         self.c_m_spot = 0.0000825
 
         # Premium cost
-        self.premium_tt = 0.001
-        self.premium_mt = 0.0005
+        self.premium_tt = 0.0002
+        self.premium_mt = 0.0006
 
 
         # Total cost
@@ -302,7 +303,7 @@ class DualStrategyBacktest100ms:
     def update_strategy1_params(self, current_time):
         """每小时为策略1更新动态参数"""
         # 获取过去1小时的数据
-        start_time = current_time - pd.Timedelta(hours=1)
+        start_time = current_time - pd.Timedelta(hours=self.reference_hours)
         hourly_data = self.raw_df[(start_time- pd.Timedelta(minutes=10)):(current_time- pd.Timedelta(minutes=10))]
         
         if len(hourly_data) == 0:
@@ -337,7 +338,16 @@ class DualStrategyBacktest100ms:
             return
             
         df_10min = self.resample_to_10min(df_100ms)
-        if len(df_10min) < LOOKBACK + PRED_LENGTH or df_10min.empty:
+        if df_10min.empty:
+            return
+        elif len(df_10min) < LOOKBACK + PRED_LENGTH:
+            mid = df_10min['close'].mean()
+            c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_dynamic_params
+            d = mid - (c_mt_high + c_mt_low) / 2
+            self.current_dynamic_params = [
+            c_tt_high + d, c_tt_low + d,
+            c_mt_high + d, c_mt_low + d,
+            c_tm_high + d, c_tm_low + d]
             return
         
         # 准备预测输入
@@ -386,6 +396,8 @@ class DualStrategyBacktest100ms:
         if len(x) == 0:
             return        
         
+        # Test
+        # print(f"x[-10:].shape: {x[-10:].shape}, x_stamp[-10:].shape: {x_stamp[-10:].shape}")
         # Normalize
         x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
         x_norm = (x - x_mean) / (x_std + 1e-5)
@@ -422,7 +434,7 @@ class DualStrategyBacktest100ms:
         high_std = np.std(preds[:, 1])
         low_mean = np.mean(preds[:, 2])
         low_std = np.std(preds[:, 2])
-        
+        theoretical_mid = (x[-144:,1].mean()+ x[-144:,2].mean()) / 2  # 过去10根K线的Close均值作为中点参考
         # 计算动态中点
         # dynamic_midpoint = (high_mean + high_std + low_mean - low_std) / 2
         high_estimate = high_mean + high_std
@@ -430,13 +442,13 @@ class DualStrategyBacktest100ms:
         c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_dynamic_params
         d = 0
         if high_estimate - low_estimate > c_mt_high - c_mt_low:
-            d = (high_estimate - low_estimate - (c_mt_high - c_mt_low)) / 2
+            d = (high_estimate + low_estimate - (c_mt_high + c_mt_low)) / 2
         # else:
         # if high_estimate >= c_mt_high and c_mt_low >= low_estimate:
         #     d = 0
         elif high_estimate <= c_mt_high and low_estimate >= c_mt_low:
-            # d = 0.1*(high_estimate - low_estimate - (c_mt_high - c_mt_low)) / 2
-            d = 0
+            d = 0.1*theoretical_mid - 0.1*(c_mt_high + c_mt_low) / 2
+            # d = 0
         elif high_estimate > c_mt_high and low_estimate >= c_mt_low:
             d = high_estimate - c_mt_high
         elif high_estimate <= c_mt_high and low_estimate < c_mt_low:
@@ -488,10 +500,6 @@ class DualStrategyBacktest100ms:
         if pd.isna(row['basis1_price']) or pd.isna(row['basis2_price']):
             return False
 
-          
-        # print(row['spot_bid0_price'], row['spot_ask0_price'], row['swap_bid0_price'], row['swap_ask0_price'])
-        # print(row['basis1_price'], row['basis2_price'])    
-
         # 选择仓位和本金
         if strategy == 1:
             P, p_swap, p_spot, P_swap = self.P1, self.p1_swap, self.p1_spot, self.P1_swap
@@ -499,18 +507,18 @@ class DualStrategyBacktest100ms:
             P, p_swap, p_spot, P_swap = self.P2, self.p2_swap, self.p2_spot, self.P2_swap
             
         # 开仓检查（三种模式）
-        if (row['basis1_price'] > mt_open and P > 0):
+        if (row['basis1_price'] > tt_open and P > 0):
+            trade_type = 'A'
+        elif (row['basis1_price'] > mt_open and P > 0):
             trade_type = 'B'        
         elif (row['basis1_price'] > tm_open and P > 0):
-            trade_type = 'C'            
-        elif (row['basis1_price'] > tt_open and P > 0):
-            trade_type = 'A'
+            trade_type = 'C'                
+        elif (row['basis2_price'] < tt_close and p_swap < 0):
+            trade_type = 'close_A'               
+        elif (row['basis2_price'] < tm_close and p_swap < 0):
+            trade_type = 'close_C'            
         elif (row['basis2_price'] < mt_close and p_swap < 0):
             trade_type = 'close_B'
-        elif (row['basis2_price'] < tm_close and p_swap < 0):
-            trade_type = 'close_C'
-        elif (row['basis2_price'] < tt_close and p_swap < 0):
-            trade_type = 'close_A'            
         else:
             return False
             
@@ -703,8 +711,8 @@ class DualStrategyBacktest100ms:
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 15), sharex=True)
         
         # PnL 对比
-        ax1.plot(self.timestamps, self.pnl1_history, label='Strategy 1 (Static)', color='blue')
-        ax1.plot(self.timestamps, self.pnl2_history, label='Strategy 2 (Dynamic)', color='red')
+        ax1.plot(self.timestamps, self.pnl1_history, label=f'Strategy 1 (Static-{self.reference_hours}h)', color='blue')
+        ax1.plot(self.timestamps, self.pnl2_history, label=f'Strategy 2 (Dynamic)', color='red')
         ax1.set_ylabel('PnL')
         ax1.set_title(f'Dual Strategy Backtest - {self.symbol}')
         ax1.legend()
@@ -745,16 +753,29 @@ def main():
 
     # symbol, start_time, end_time = "XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"
     
-    experiments = [["AVAX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"], # Section 1
+    experiments = [["AVAX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
+                   ["AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["FET",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
+                   ["FET",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["FET",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"],       
                    ["KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
-                   ["DOGE",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
-                   ["XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"], 
-                   ["AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"], # Section 2
                    ["KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["KAITO",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"], 
+                   ["LINK",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
+                   ["LINK",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["LINK",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"], 
+                   ["TAO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
+                   ["TAO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["TAO",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"], 
+                   ["TRX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
+                   ["TRX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
+                   ["TRX",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"], 
+                   ["XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59"],
                    ["XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59"],
-                   ["XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"]  # Section 3                 
+                   ["XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"],
+                   ["ZEC",  "2025-10-22 00:00:00", "2025-10-28 23:59:59"]                                                                
                    ]
-    MODEL_NAME = "v20260104_2"
+    MODEL_NAME = "v20260104_6"
     static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     
     for symbol, start_time, end_time in experiments:

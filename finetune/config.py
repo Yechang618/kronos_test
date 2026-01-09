@@ -13,8 +13,8 @@ class Config:
         self.dataset_path = "./datasets/task4/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 240
-        self.predict_window = 1
+        self.lookback_window = 144
+        self.predict_window = 72
         self.max_context = 2048
         self.clip = 5.0
 
@@ -22,7 +22,7 @@ class Config:
         self.seed = 42
         self.batch_size = 10
         self.log_interval = 100
-        self.epochs = 30
+        self.epochs = 20
         self.n_train_iter = 100000 * self.batch_size
         self.n_val_iter = 8000 * self.batch_size
 

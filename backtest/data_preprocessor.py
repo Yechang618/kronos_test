@@ -123,14 +123,17 @@ def main():
            "THE", "TON", "TRX", "TURBO",  # 30
            "UNI", "XLM", "XRP", "ZEC", # 34
            ] # 
-    symbol = symbols[9]  # "DOT"
+    symbol = symbols[34]  # ZEC
     load_dir = Path("D:/data/datasets")
     output_dir = Path("./backtest/data")
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    time_periods = [("2025-10-01", "2025-10-07")]
+    # time_periods = [("2025-10-01", "2025-10-07")]
     # time_periods = [("2025-10-14", "2025-10-20")]
-    # time_periods = [("2025-10-22", "2025-10-28")]    
+    # time_periods = [("2025-10-22", "2025-10-28")]  
+    time_periods = [("2025-10-01", "2025-10-07"),
+                    ("2025-10-14", "2025-10-20"), 
+                    ("2025-10-22", "2025-10-28")]  
     
     
     for start_str, end_str in time_periods:
