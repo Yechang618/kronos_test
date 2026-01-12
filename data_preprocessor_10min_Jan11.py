@@ -236,20 +236,22 @@ for i in range(0, len(symbols)):
     all_df['basis1'] = np.log(all_df['swap_bid0_price']) - np.log(all_df['spot_ask0_price'])
     all_df['basis2'] = np.log(all_df['swap_ask0_price']) - np.log(all_df['spot_bid0_price'])
 
-    # --- 新定义的 Volumn (swap book imbalance) ---
-    swap_bid_sum3 = all_df[['swap_bid0_amount', 'swap_bid1_amount', 'swap_bid2_amount']].sum(axis=1)
-    swap_ask_sum3 = all_df[['swap_ask0_amount', 'swap_ask1_amount', 'swap_ask2_amount']].sum(axis=1)
-    # 避免除零或 log(negative)
-    swap_bid_sum3 = swap_bid_sum3.replace(0, np.nan)
-    swap_ask_sum3 = swap_ask_sum3.replace(0, np.nan)
-    all_df['Volumn'] = np.log(swap_bid_sum3) - np.log(swap_ask_sum3)
+    # --- 新定义的 Volume (swap book imbalance) ---
+    # swap_bid_sum3 = all_df[['swap_bid0_amount', 'swap_bid1_amount', 'swap_bid2_amount']].sum(axis=1)
+    # swap_ask_sum3 = all_df[['swap_ask0_amount', 'swap_ask1_amount', 'swap_ask2_amount']].sum(axis=1)
+    # # 避免除零或 log(negative)
+    # swap_bid_sum3 = swap_bid_sum3.replace(0, np.nan)
+    # swap_ask_sum3 = swap_ask_sum3.replace(0, np.nan)
+    # all_df['Volume'] = np.log(swap_bid_sum3) - np.log(swap_ask_sum3)
+    all_df = all_df.rename(columns={"funding_rate": "Volume"}, errors="raise")
 
     # --- 新定义的 Amount (spot book imbalance) ---
-    spot_bid_sum3 = all_df[['spot_bid0_amount', 'spot_bid1_amount', 'spot_bid2_amount']].sum(axis=1)
-    spot_ask_sum3 = all_df[['spot_ask0_amount', 'spot_ask1_amount', 'spot_ask2_amount']].sum(axis=1)
-    spot_bid_sum3 = spot_bid_sum3.replace(0, np.nan)
-    spot_ask_sum3 = spot_ask_sum3.replace(0, np.nan)
-    all_df['Amount'] = np.log(spot_bid_sum3) - np.log(spot_ask_sum3)
+    # spot_bid_sum3 = all_df[['spot_bid0_amount', 'spot_bid1_amount', 'spot_bid2_amount']].sum(axis=1)
+    # spot_ask_sum3 = all_df[['spot_ask0_amount', 'spot_ask1_amount', 'spot_ask2_amount']].sum(axis=1)
+    # spot_bid_sum3 = spot_bid_sum3.replace(0, np.nan)
+    # spot_ask_sum3 = spot_ask_sum3.replace(0, np.nan)
+    spot_mid_price = (all_df['spot_bid0_price'] + all_df['spot_ask0_price']) / 2
+    all_df['Amount'] = np.log(spot_mid_price) - np.log(all_df['index_price'])
 
     # ==============================
     # 按 10 分钟重采样，聚合新指标
@@ -258,7 +260,7 @@ for i in range(0, len(symbols)):
         if subdf.empty:
             return pd.Series(
                 [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan],
-                index=['Max', 'Min', 'Open', 'Close', 'Volumn', 'Amount']
+                index=['Max', 'Min', 'Open', 'Close', 'Volume', 'Amount']
             )
         
         # Max = basis1 的最大值（按你最初要求，而非分位数）
@@ -272,8 +274,8 @@ for i in range(0, len(symbols)):
         Open = mid_clean.iloc[0] if len(mid_clean) > 0 else np.nan
         Close = mid_clean.iloc[-1] if len(mid_clean) > 0 else np.nan
 
-        # Volumn = 该分钟内 Volumn 的均值（按原逻辑）
-        Volumn = subdf['Volumn'].mean()
+        # Volume = 该分钟内 Volume 的均值（按原逻辑）
+        Volume = subdf['Volume'].iloc[-1] if len(subdf['Volume']) > 0 else np.nan
         # Amount = 该分钟内 Amount 的均值（注意：现在 Amount 是秒级 imbalance，不是交易量）
         Amount = subdf['Amount'].mean()
 
@@ -282,7 +284,7 @@ for i in range(0, len(symbols)):
             'Min': Min,
             'Open': Open,
             'Close': Close,
-            'Volumn': Volumn,
+            'Volume': Volume,
             'Amount': Amount
         })
 
@@ -302,7 +304,7 @@ for i in range(0, len(symbols)):
     # ==============================
     # 保存结果
     # ==============================
-    basis_dir = processed_dir / "basis_10min"
+    basis_dir = processed_dir / "basis_10min_task5"
     basis_dir.mkdir(exist_ok=True)
 
     # 确保 basis_10min.index 是 DatetimeIndex（应已是）
