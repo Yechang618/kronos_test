@@ -4,7 +4,7 @@ import pickle
 import pandas as pd
 from config import Config
 
-TASK_NAME = "task4"
+TASK_NAME = "task5"
 
 def main():
     symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
