@@ -67,6 +67,7 @@ class QlibDataset(Dataset):
         x_stamp = win_df[self.time_feature_list].values.astype(np.float32)
 
         x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
+        # print(x_mean, x_std)
         x = (x - x_mean) / (x_std + 1e-5)
         x = np.clip(x, -self.config.clip, self.config.clip)
 
