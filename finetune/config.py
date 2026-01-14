@@ -14,7 +14,7 @@ class Config:
 
         # 时间窗口
         self.lookback_window = 144
-        self.predict_window = 12
+        self.predict_window = 48
         self.max_context = 2048
         self.clip = 5.0
 
@@ -22,9 +22,9 @@ class Config:
         self.seed = 42
         self.batch_size = 10
         self.log_interval = 100
-        self.epochs = 20
+        self.epochs = 30
         self.n_train_iter = 100000 * self.batch_size
-        self.n_val_iter = 8000 * self.batch_size
+        self.n_val_iter = 4000 * self.batch_size
 
         self.tokenizer_learning_rate = 5e-4
         self.predictor_learning_rate = 1e-7
