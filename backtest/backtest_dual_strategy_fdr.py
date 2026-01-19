@@ -1,0 +1,796 @@
+# backtest/backtest_dual_strategy_fdr.py
+import os
+# Fix OMP warning
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+import pickle
+import sys
+import torch
+
+# Add project root
+root_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(root_dir))
+
+from config import Config
+from model.kronos import Kronos, KronosTokenizer
+from model.kronos import sample_from_logits
+
+from hourly_dynamic_params import calculate_hourly_trading_params
+class DualStrategyBacktest100ms:
+    def __init__(self, symbol, start_time, end_time, static_params, model_name = "default", fditv=8):
+        """
+        双策略回测：策略1（静态参数），策略2（动态预测参数）
+        """
+        self.symbol = symbol
+        self.start_time = start_time
+        self.end_time = end_time
+        self.static_params = static_params
+        self.model_name = model_name
+        self.fditv = fditv
+        # 回测参数
+        self.P1 = 1000.0  # 策略1本金
+        self.P2 = 1000.0  # 策略2本金
+        self.alpha = 0.1
+        self.beta = 0.9
+        self.dt = 0.01
+        self.reference_hours = 24
+        
+        # 交易成本
+        self.c_t_swap = 0.000153
+        self.c_t_spot = 0.0001725
+        self.c_m_swap = 0.0
+        self.c_m_spot = 0.0000825
+
+        # Premium cost
+        self.premium_tt = 0.0002
+        self.premium_mt = 0.0006
+
+
+        # Total cost
+        self.c_tt = self.c_t_swap + self.c_t_spot
+        self.c_tm = self.c_t_swap + self.c_m_spot 
+        self.c_mt = self.c_m_swap + self.c_t_spot
+        
+        # 仓位初始化
+        self.p1_swap = self.p2_swap = 0.0
+        self.p1_spot = self.p2_spot = 0.0
+        self.P1_swap = self.P2_swap = 0.0
+        
+        # 结果记录
+        self.pnl1_history = []
+        self.pnl2_history = []
+        self.params1_history = []
+        self.params2_history = []
+        self.timestamps = []
+        
+        # 数据
+        self.raw_df = None
+        
+        # 动态策略参数
+        self.current_dynamic_params = [self.c_tt + self.premium_tt, -self.c_tt - self.premium_tt, 
+                                       self.c_mt + self.premium_mt, -self.c_mt - self.premium_mt, 
+                                       self.c_tm + self.premium_mt, -self.c_tm - self.premium_mt]
+        self.strategy1_params = [self.c_tt + self.premium_tt, -self.c_tt - self.premium_tt, 
+                                       self.c_mt + self.premium_mt, -self.c_mt - self.premium_mt, 
+                                       self.c_tm + self.premium_mt, -self.c_tm - self.premium_mt]
+        self.predictor = None
+        self.tokenizer = None
+
+    def load_data(self):
+        data_dir = Path("./backtest/data")
+        start_dt = pd.Timestamp(self.start_time)
+        end_dt = pd.Timestamp(self.end_time)
+        date_range = pd.date_range(start_dt.date(), end_dt.date(), freq="D")
+        
+        daily_dfs = []
+        for date in date_range:
+            date_str = date.strftime("%Y-%m-%d")
+            filename = f"backtest_fdr_{self.symbol}_{date_str}.csv"
+            filepath = data_dir / filename
+            if filepath.exists():
+                df_daily = pd.read_csv(filepath, index_col=0, parse_dates=True)
+                daily_dfs.append(df_daily)
+        
+        if not daily_dfs:
+            raise ValueError("No data files found")
+        
+        self.raw_df = pd.concat(daily_dfs, axis=0)
+        self.raw_df = self.raw_df.sort_index()
+        self.raw_df = self.raw_df[self.start_time:self.end_time]
+        
+        # 确保所有需要的列都存在
+        required_columns = [
+            'spot_bid0_price', 'spot_ask0_price', 'spot_bid0_amount', 'spot_ask0_amount',
+            'swap_bid0_price', 'swap_ask0_price', 'swap_bid0_amount', 'swap_ask0_amount',
+            'funding_rate', 'index_price', 'mark_price'
+        ]
+        for col in required_columns:
+            if col not in self.raw_df.columns:
+                self.raw_df[col] = np.nan
+
+    def initialize_predictor(self):
+        """初始化 Kronos 预测器"""
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        self.tokenizer = KronosTokenizer.from_pretrained(
+            "./outputs/models/finetune_tokenizer_all/checkpoints/best_model"
+        ).to(device).eval()
+        self.predictor_model = Kronos.from_pretrained(
+            "./outputs/models/finetune_predictor_all/checkpoints/best_model"
+        ).to(device).eval()
+        
+        class KronosPredictor:
+            def __init__(self, model, tokenizer, device, max_context=2048):
+                self.model = model
+                self.tokenizer = tokenizer
+                self.device = device
+                self.max_context = max_context
+            
+            def predict(self, x, x_stamp, y_stamp, pred_len=1, T=1.0, top_p=0.9, top_k=0):
+                with torch.no_grad():
+                    x = torch.from_numpy(x).unsqueeze(0).to(self.device)
+                    x_stamp = torch.from_numpy(x_stamp).unsqueeze(0).to(self.device)
+                    y_stamp = torch.from_numpy(y_stamp).unsqueeze(0).to(self.device)
+                    x_token = self.tokenizer.encode(x, half=True)
+                    initial_seq_len = x.size(1)
+                    batch_size = x_token[0].size(0)
+                    total_seq_len = initial_seq_len + pred_len
+                    full_stamp = torch.cat([x_stamp, y_stamp], dim=1)
+                    generated_pre = x_token[0].new_empty(batch_size, pred_len)
+                    generated_post = x_token[1].new_empty(batch_size, pred_len)
+                    pre_buffer = x_token[0].new_zeros(batch_size, self.max_context)
+                    post_buffer = x_token[1].new_zeros(batch_size, self.max_context)
+                    buffer_len = min(initial_seq_len, self.max_context)
+                    if buffer_len > 0:
+                        start_idx = max(0, initial_seq_len - self.max_context)
+                        pre_buffer[:, :buffer_len] = x_token[0][:, start_idx:start_idx + buffer_len]
+                        post_buffer[:, :buffer_len] = x_token[1][:, start_idx:start_idx + buffer_len]
+                    for i in range(pred_len):
+                        current_seq_len = initial_seq_len + i
+                        window_len = min(current_seq_len, self.max_context)
+                        if current_seq_len <= self.max_context:
+                            input_tokens = [pre_buffer[:, :window_len], post_buffer[:, :window_len]]
+                        else:
+                            input_tokens = [pre_buffer, post_buffer]
+                        context_end = current_seq_len
+                        context_start = max(0, context_end - self.max_context)
+                        current_stamp = full_stamp[:, context_start:context_end, :].contiguous()
+                        s1_logits, context = self.model.decode_s1(input_tokens[0], input_tokens[1], current_stamp)
+                        s1_logits = s1_logits[:, -1, :]
+                        sample_pre = sample_from_logits(s1_logits, temperature=T, top_k=top_k, top_p=top_p, sample_logits=True)
+                        s2_logits = self.model.decode_s2(context, sample_pre)
+                        s2_logits = s2_logits[:, -1, :]
+                        sample_post = sample_from_logits(s2_logits, temperature=T, top_k=top_k, top_p=top_p, sample_logits=True)
+                        generated_pre[:, i] = sample_pre.squeeze(-1)
+                        generated_post[:, i] = sample_post.squeeze(-1)
+                        if current_seq_len < self.max_context:
+                            pre_buffer[:, current_seq_len] = sample_pre.squeeze(-1)
+                            post_buffer[:, current_seq_len] = sample_post.squeeze(-1)
+                        else:
+                            pre_buffer.copy_(torch.roll(pre_buffer, shifts=-1, dims=1))
+                            post_buffer.copy_(torch.roll(post_buffer, shifts=-1, dims=1))
+                            pre_buffer[:, -1] = sample_pre.squeeze(-1)
+                            post_buffer[:, -1] = sample_post.squeeze(-1)
+                    full_pre = torch.cat([x_token[0], generated_pre], dim=1)
+                    full_post = torch.cat([x_token[1], generated_post], dim=1)
+                    context_start = max(0, total_seq_len - self.max_context)
+                    input_tokens = [full_pre[:, context_start:total_seq_len].contiguous(), full_post[:, context_start:total_seq_len].contiguous()]
+                    z = self.tokenizer.decode(input_tokens, half=True)
+                    return z[0, -pred_len:, :].cpu().numpy()
+        
+        self.predictor = KronosPredictor(self.predictor_model, self.tokenizer, device, max_context=2048)
+
+    def resample_to_10min(self, df_100ms):
+        """将100ms数据重采样为10分钟K线，使用正确的volume和amount定义"""
+        if df_100ms.empty:
+            return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume', 'amount'])
+        # print(df_100ms.info())
+        # 确保所有需要的列都存在
+        required_cols = []
+        for prefix in ['spot', 'swap']:
+            for level in range(3):  # 前3档
+                required_cols.extend([f"{prefix}_bid{level}_amount", f"{prefix}_ask{level}_amount"])
+            required_cols.extend([f"{prefix}_bid0_price", f"{prefix}_ask0_price"])
+        required_cols.extend(['basis1_price', 'basis2_price', 'basis1_volume', 'basis2_volume'])
+        required_cols.extend(['basis_mid_price', 'index_price', 'funding_rate'])
+
+        for col in required_cols:
+            if col not in df_100ms.columns:
+                df_100ms[col] = np.nan
+        
+        # 移除全 NaN 的行
+        df_clean = df_100ms.dropna(subset=required_cols, how='all')
+        # df_clean['basis'] = (df_clean['basis1_price'] + df_clean['basis2_price'])/2
+        
+        if df_clean.empty:
+            return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume', 'amount'])
+        
+        # 重采样为10分钟
+        resampled = df_clean.resample('10min')
+        # basis_mean = (resampled['basis1_price'] + resampled['basis2_price'])/2
+        
+        # 计算 Open/Close (使用 spot bid0)
+        open_prices = resampled['basis_mid_price'].first()
+        close_prices = resampled['basis_mid_price'].last()
+        
+        # 计算 High/Low (取 spot bid0, spot ask0, swap bid0, swap ask0 的极值)
+        # price_cols = ['spot_bid0_price', 'spot_ask0_price', 'swap_bid0_price', 'swap_ask0_price']
+        # high_prices = resampled[price_cols].max().max(axis=1)
+        # low_prices = resampled[price_cols].min().min(axis=1)
+        high_prices = resampled['basis1_price'].quantile(0.95, interpolation='nearest')
+        low_prices = resampled['basis2_price'].quantile(0.05, interpolation='nearest')
+
+        # 计算 Volume (使用 funding_rate 作为权重)
+        volume_series = resampled['funding_rate'].last()
+        # 计算 Amount ()
+        spot_mid_price = (resampled['spot_bid0_price'].mean() + resampled['spot_ask0_price'].mean()) / 2
+        amount_series = np.log(spot_mid_price) - np.log(resampled['index_price'].mean())
+        
+        # 合并结果
+        df_10min = pd.DataFrame({
+            'open': open_prices,
+            'high': high_prices,
+            'low': low_prices,
+            'close': close_prices,
+            'volume': volume_series,
+            'amount': amount_series
+        })
+        
+        # 确保索引一致
+        df_10min.index = open_prices.index
+        
+        # 强制转换为数值类型并移除 NaN
+        for col in df_10min.columns:
+            df_10min[col] = pd.to_numeric(df_10min[col], errors='coerce')
+        
+        df_10min = df_10min.dropna()
+        return df_10min
+
+    def update_strategy1_params(self, current_time):
+        """每小时为策略1更新动态参数"""
+        # 获取过去1小时的数据
+        start_time = current_time - pd.Timedelta(hours=self.reference_hours)
+        hourly_data = self.raw_df[(start_time- pd.Timedelta(minutes=10)):(current_time- pd.Timedelta(minutes=10))]
+        
+        if len(hourly_data) == 0:
+            return
+            
+        # 使用策略函数计算参数
+        new_params = calculate_hourly_trading_params(
+            hourly_data, 
+            a=self.premium_tt,  # 你可以调整这些参数
+            b=self.premium_mt,
+            c_t_swap=self.c_t_swap,
+            c_t_spot=self.c_t_spot,
+            c_m_swap=self.c_m_swap,
+            c_m_spot=self.c_m_spot
+        )
+        return new_params
+
+    def update_dynamic_params(self, current_time):
+        # y_stamp = np.tile(y_stamp_data, (PRED_LENGTH, 1))
+        """每10分钟更新动态交易参数"""
+        # 获取过去144个10分钟K线（24小时）
+        # 预测未来1个10分钟K线（30个样本）
+        LOOKBACK = 144
+        nHour = LOOKBACK // 6  # 10分钟K线，每小时6根
+        N_SAMPLES = 30
+        PRED_LENGTH = 12
+        start_time = current_time - pd.Timedelta(hours=nHour)
+        df_100ms = self.raw_df[start_time:current_time+ pd.Timedelta(minutes=10*PRED_LENGTH)]
+        # print("Updating dynamic params at", current_time)
+        # print(df_100ms.info())
+        if len(df_100ms) == 0:
+            return
+            
+        df_10min = self.resample_to_10min(df_100ms)
+        if df_10min.empty:
+            return
+        elif len(df_10min) < LOOKBACK + PRED_LENGTH:
+            mid = df_10min['close'].mean()
+            c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_dynamic_params
+            d = mid - (c_mt_high + c_mt_low) / 2
+            self.current_dynamic_params = [
+            c_tt_high + d, c_tt_low + d,
+            c_mt_high + d, c_mt_low + d,
+            c_tm_high + d, c_tm_low + d]
+            return
+        
+        # 准备预测输入
+        config = Config()
+        feature_list = config.feature_list
+        time_features = ['minute', 'hour', 'weekday', 'day', 'month']
+        
+        # 取最后144根K线 - 确保是副本
+        x_df = df_10min[-LOOKBACK-PRED_LENGTH:-PRED_LENGTH].copy()
+        y_df = df_10min[-PRED_LENGTH:].copy()
+        # 安全地添加时间特征 - 避免 SettingWithCopyWarning
+        x_df = x_df.assign(
+            minute=x_df.index.minute,
+            hour=x_df.index.hour,
+            weekday=x_df.index.weekday,
+            day=x_df.index.day,
+            month=x_df.index.month
+        )
+        y_df = y_df.assign(
+            minute=y_df.index.minute,
+            hour=y_df.index.hour,
+            weekday=y_df.index.weekday,
+            day=y_df.index.day,
+            month=y_df.index.month
+        )
+        
+        # 确保所有特征列存在且为数值类型
+        for col in feature_list:
+            if col not in x_df.columns:
+                x_df[col] = np.nan
+            # 强制转换为 float32
+            x_df[col] = pd.to_numeric(x_df[col], errors='coerce')
+        
+        x = x_df[feature_list].values.astype(np.float32)
+        x_stamp = x_df[time_features].values.astype(np.float32)
+        
+        # 移除包含 NaN 的行
+        valid_mask = ~np.isnan(x).any(axis=1)
+        if not valid_mask.any():
+            return
+            
+        x = x[valid_mask]
+        x_stamp = x_stamp[valid_mask]
+        
+        # 如果数据不足，跳过
+        if len(x) == 0:
+            return        
+        
+        # Test
+        # print(f"x[-10:].shape: {x[-10:].shape}, x_stamp[-10:].shape: {x_stamp[-10:].shape}")
+        # Normalize
+        x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
+        x_norm = (x - x_mean) / (x_std + 1e-5)
+        x_norm = np.clip(x_norm, -5.0, 5.0)
+        y_stamp = y_df[time_features].values.astype(np.float32)   
+        # print(f"current_time: {current_time}, x shape: {x.shape}, y_stamp: {y_stamp}")      
+        # 预测
+        preds = []
+        for _ in range(N_SAMPLES):
+            pred = self.predictor.predict(
+                x=x_norm,
+                x_stamp=x_stamp,
+                y_stamp=y_stamp,  # ← 现在是 float32
+                pred_len=PRED_LENGTH,
+                T=0.6,
+                top_p=0.9,
+                top_k=0
+            )
+            # 反归一化
+            # pred = pred * (x_std + 1e-5) + x_mean
+            # print(pred.shape)
+            for j in range(pred.shape[0]):
+                pred[j, :] = pred[j, :]* (x_std + 1e-5) + x_mean  # 反归一化
+            # print(pred[0])
+            preds.append(pred[-1])
+        
+        if not preds:
+            return
+            
+        preds = np.array(preds)
+        
+        # 计算 High 和 Low 的统计量
+        high_mean = np.mean(preds[:, 1])
+        high_std = np.std(preds[:, 1])
+        low_mean = np.mean(preds[:, 2])
+        low_std = np.std(preds[:, 2])
+        theoretical_mid = (x[-144:,1].mean()+ x[-144:,2].mean()) / 2  # 过去10根K线的Close均值作为中点参考
+        # 计算动态中点
+        # dynamic_midpoint = (high_mean + high_std + low_mean - low_std) / 2
+        high_estimate = high_mean + high_std
+        low_estimate = low_mean - low_std
+        c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_dynamic_params
+        d = 0
+        if high_estimate - low_estimate > c_mt_high - c_mt_low:
+            d = (high_estimate + low_estimate - (c_mt_high + c_mt_low)) / 2
+        # else:
+        # if high_estimate >= c_mt_high and c_mt_low >= low_estimate:
+        #     d = 0
+        elif high_estimate <= c_mt_high and low_estimate >= c_mt_low:
+            d = 0.1*theoretical_mid - 0.1*(c_mt_high + c_mt_low) / 2
+            # d = 0
+        elif high_estimate > c_mt_high and low_estimate >= c_mt_low:
+            d = high_estimate - c_mt_high
+        elif high_estimate <= c_mt_high and low_estimate < c_mt_low:
+            d = low_estimate - c_mt_low
+        else:
+            print("Unexpected case in dynamic param adjustment")
+            print(high_estimate, low_estimate, c_mt_high, c_mt_low)
+        # if d == 0:
+        #     print("No adjustment to dynamic params")
+        #     print(high_estimate, low_estimate, c_mt_high, c_mt_low)
+        # 设置动态参数
+        self.current_dynamic_params = [
+            c_tt_high + d, c_tt_low + d,
+            c_mt_high + d, c_mt_low + d,
+            c_tm_high + d, c_tm_low + d
+        ]
+
+    def get_price_with_slippage(self, price_col, next_price_col, timestamp):
+        if timestamp not in self.raw_df.index:
+            return np.nan
+        current_price = self.raw_df.loc[timestamp, price_col]
+        if pd.isna(current_price):
+            return np.nan
+        try:
+            next_price = self.raw_df.loc[timestamp, next_price_col]
+            if pd.isna(next_price):
+                next_price = current_price
+        except:
+            next_price = current_price
+        return self.beta * current_price + (1 - self.beta) * next_price
+
+    def get_future_price(self, price_col, timestamp, dt_steps=1):
+        if timestamp not in self.raw_df.index:
+            return np.nan
+        current_idx = self.raw_df.index.get_loc(timestamp)
+        future_idx = min(current_idx + dt_steps, len(self.raw_df) - 1)
+        future_timestamp = self.raw_df.index[future_idx]
+        return self.raw_df.loc[future_timestamp, price_col]
+
+    def funding_fee_settlement(self, funding_rate, mid_swap_price):
+        self.P1 -= self.p1_swap * funding_rate * mid_swap_price
+        self.P2 -= self.p2_swap * funding_rate * mid_swap_price
+            
+
+    def execute_trade(self, strategy, timestamp, funding_rate, params):
+        """执行交易（策略1或策略2）"""
+        if timestamp not in self.raw_df.index:
+            return False
+            
+        # 参数解包
+        tt_open, tt_close, mt_open, mt_close, tm_open, tm_close = params
+        
+        row = self.raw_df.loc[timestamp]
+        if pd.isna(row['basis1_price']) or pd.isna(row['basis2_price']):
+            return False
+
+        # 选择仓位和本金
+        if strategy == 1:
+            P, p_swap, p_spot, P_swap = self.P1, self.p1_swap, self.p1_spot, self.P1_swap
+        else:
+            P, p_swap, p_spot, P_swap = self.P2, self.p2_swap, self.p2_spot, self.P2_swap
+        
+        if self.fditv  == 8:
+            fd_sections = [(4,7), (12,15), (20,23)]
+        elif self.fditv == 4:
+            fd_sections = [(2,3), (6,7), (10,11), (14,15), (18,19), (22,23)]
+
+        factor = 0
+        for start_hour, end_hour in fd_sections:
+            # if start_hour <= timestamp.hour <= end_hour:
+            #     break
+            if start_hour <= timestamp.hour <= end_hour:
+                seconds_to_settle = (end_hour - timestamp.hour) * 3600 + (60 - timestamp.minute) * 60 - timestamp.second
+                factor = np.exp(-seconds_to_settle / (60*60*self.fditv/2))
+        # elif 12 <= timestamp.hour <= 15:
+        #     seconds_to_settle = (15 - timestamp.hour) * 3600 + (60 - timestamp.minute) * 60 - timestamp.second
+        #     factor = np.exp(-seconds_to_settle / 60*60*4)
+        # elif 20 <= timestamp.hour <= 23:
+        #     seconds_to_settle = (23 - timestamp.hour) * 3600 + (60 - timestamp.minute) * 60 - timestamp.second
+        #     factor = np.exp(-seconds_to_settle / 60*60*4)
+        # else:
+        #     factor = 0
+        
+            
+        # 开仓检查（三种模式）
+        if (row['basis1_price'] > tt_open  - funding_rate * factor and P > 0):
+            trade_type = 'A'
+        elif (row['basis1_price'] > mt_open - funding_rate * factor and P > 0):
+            trade_type = 'B'        
+        elif (row['basis1_price'] > tm_open - funding_rate * factor and P > 0):
+            trade_type = 'C'                
+        elif (row['basis2_price'] < tt_close - funding_rate * factor and p_swap < 0):
+            trade_type = 'close_A'               
+        elif (row['basis2_price'] < tm_close - funding_rate * factor and p_swap < 0):
+            trade_type = 'close_C'            
+        elif (row['basis2_price'] < mt_close - funding_rate * factor and p_swap < 0):
+            trade_type = 'close_B'
+        else:
+            return False
+            
+        # 执行交易
+        if trade_type.startswith('close'):
+            # 关仓逻辑
+            if pd.isna(row['spot_bid0_price']) or pd.isna(row['basis2_volume']) or row['spot_bid0_price'] <= 0:
+                return False
+            z = self.alpha * min(P / row['spot_bid0_price'], row['basis2_volume'])
+            z = min(z, -p_swap)
+            if z <= 0:
+                return False
+                
+            if trade_type == 'close_A':
+                spot_price = self.get_price_with_slippage('spot_bid0_price', 'spot_bid1_price', timestamp)
+                swap_price = self.get_price_with_slippage('swap_ask0_price', 'swap_ask1_price', timestamp)
+                if pd.isna(spot_price) or pd.isna(swap_price):
+                    return False
+                new_p_swap = p_swap + z
+                new_p_spot = p_spot - z
+                new_P_swap = P_swap - swap_price * z
+                new_P = P + (spot_price - self.c_t_swap*swap_price - self.c_t_spot*spot_price) * z
+            elif trade_type == 'close_B':
+                future_spot_bid0 = self.get_future_price('spot_bid0_price', timestamp, 1)
+                future_spot_bid1 = self.get_future_price('spot_bid1_price', timestamp, 1)
+                if pd.isna(future_spot_bid0) or pd.isna(future_spot_bid1):
+                    return False
+                spot_price = self.beta * future_spot_bid0 + (1 - self.beta) * future_spot_bid1
+                new_p_swap = p_swap + z
+                new_p_spot = p_spot - z
+                new_P_swap = P_swap - row['swap_ask0_price'] * z
+                new_P = P + (spot_price - self.c_m_swap*row['swap_ask0_price'] - self.c_t_spot*spot_price) * z
+            else:  # close_C
+                future_swap_ask0 = self.get_future_price('swap_ask0_price', timestamp, 1)
+                future_swap_ask1 = self.get_future_price('swap_ask1_price', timestamp, 1)
+                if pd.isna(future_swap_ask0) or pd.isna(future_swap_ask1):
+                    return False
+                swap_price = self.beta * future_swap_ask0 + (1 - self.beta) * future_swap_ask1
+                new_p_swap = p_swap + z
+                new_p_spot = p_spot - z
+                new_P_swap = P_swap - swap_price * z
+                new_P = P + (row['spot_bid0_price'] - self.c_t_swap*swap_price - self.c_m_spot*row['spot_bid0_price']) * z
+        else:
+            # 开仓逻辑
+            if pd.isna(row['spot_ask0_price']) or pd.isna(row['basis1_volume']) or row['spot_ask0_price'] <= 0:
+                return False
+            z = self.alpha * min(P / row['spot_ask0_price'], row['basis1_volume'])
+            if z <= 0:
+                return False
+                
+            if trade_type == 'A':
+                spot_price = self.get_price_with_slippage('spot_ask0_price', 'spot_ask1_price', timestamp)
+                swap_price = self.get_price_with_slippage('swap_bid0_price', 'swap_bid1_price', timestamp)
+                if pd.isna(spot_price) or pd.isna(swap_price):
+                    return False
+                new_p_swap = p_swap - z
+                new_p_spot = p_spot + z
+                new_P_swap = P_swap + swap_price * z
+                new_P = P - (spot_price + self.c_t_swap*swap_price + self.c_t_spot*spot_price) * z
+            elif trade_type == 'B':
+                future_spot_ask0 = self.get_future_price('spot_ask0_price', timestamp, 1)
+                future_spot_ask1 = self.get_future_price('spot_ask1_price', timestamp, 1)
+                if pd.isna(future_spot_ask0) or pd.isna(future_spot_ask1):
+                    return False
+                spot_price = self.beta * future_spot_ask0 + (1 - self.beta) * future_spot_ask1
+                new_p_swap = p_swap - z
+                new_p_spot = p_spot + z
+                new_P_swap = P_swap + row['swap_bid0_price'] * z
+                new_P = P - (spot_price + self.c_m_swap*row['swap_bid0_price'] + self.c_t_spot*spot_price) * z
+            else:  # 'C'
+                future_swap_bid0 = self.get_future_price('swap_bid0_price', timestamp, 1)
+                future_swap_bid1 = self.get_future_price('swap_bid1_price', timestamp, 1)
+                if pd.isna(future_swap_bid0) or pd.isna(future_swap_bid1):
+                    return False
+                swap_price = self.beta * future_swap_bid0 + (1 - self.beta) * future_swap_bid1
+                new_p_swap = p_swap - z
+                new_p_spot = p_spot + z
+                new_P_swap = P_swap + swap_price * z
+                new_P = P - (row['spot_ask0_price'] + self.c_t_swap*swap_price + self.c_m_spot*row['spot_ask0_price']) * z
+        
+        # 更新仓位
+        if strategy == 1:
+            self.p1_swap, self.p1_spot, self.P1_swap, self.P1 = new_p_swap, new_p_spot, new_P_swap, new_P
+        else:
+            self.p2_swap, self.p2_spot, self.P2_swap, self.P2 = new_p_swap, new_p_spot, new_P_swap, new_P
+            
+        return True
+
+    def calculate_pnl(self, timestamp, strategy):
+        if timestamp not in self.raw_df.index:
+            return np.nan
+        row = self.raw_df.loc[timestamp]
+        spot_price = row['spot_bid0_price']
+        swap_price = row['swap_ask0_price']
+        if pd.isna(spot_price) or pd.isna(swap_price):
+            return np.nan
+        if strategy == 1:
+            pnl = self.P1 + self.P1_swap + self.p1_spot * spot_price + self.p1_swap * swap_price
+        else:
+            pnl = self.P2 + self.P2_swap + self.p2_spot * spot_price + self.p2_swap * swap_price
+        return pnl
+
+    def run_backtest(self):
+        self.load_data()
+        self.initialize_predictor()
+        
+        # 按秒分组（100ms数据）
+        df_grouped = self.raw_df.groupby(pd.Grouper(freq='1s'))
+        last_update_time = None
+        
+        last_update_time_1 = None  # 策略1参数更新时间
+        last_update_time_2 = None  # 策略2参数更新时间
+    
+        for second_timestamp, second_group in df_grouped:
+            # is_8am_exact = (second_timestamp.hour == 2) & (second_timestamp.minute == 40) & (second_timestamp.second == 0)
+            # print(f"Processing second: {second_timestamp}, is_8am_exact: {is_8am_exact}")
+            # print(f"Processing second: {second_timestamp}, second_group.columns: {second_group.columns.tolist()}")
+            if second_group.empty:
+                continue
+                
+            # Get funding rate for this second
+            funding_rates = second_group['funding_rate'].dropna().values
+            funding_rate = funding_rates[0] if len(funding_rates) > 0 else 0.0
+
+            # 策略1：每小时更新
+            if (last_update_time_1 is None or 
+                second_timestamp - last_update_time_1 >= pd.Timedelta(minutes=30)):
+                new_params = self.update_strategy1_params(second_timestamp)
+                if new_params is not None:
+                    self.strategy1_params = new_params
+                last_update_time_1 = second_timestamp
+                
+            # 策略2：每10分钟更新（保持原有逻辑）
+            if (last_update_time_2 is None or 
+                second_timestamp - last_update_time_2 >= pd.Timedelta(minutes=30)):
+                self.update_dynamic_params(second_timestamp)  # 这是策略2的更新
+                last_update_time_2 = second_timestamp
+            
+            # 执行交易时使用各自的参数
+            trade_executed_1 = trade_executed_2 = False
+            for timestamp in second_group.index:
+                # print(f"Processing timestamp: {timestamp}")
+                if not trade_executed_1:
+                    if self.execute_trade(1, timestamp, funding_rate, self.strategy1_params):
+                        trade_executed_1 = True
+                        
+                if not trade_executed_2:
+                    if self.execute_trade(2, timestamp, funding_rate, self.current_dynamic_params):
+                        trade_executed_2 = True
+                        
+                if trade_executed_1 and trade_executed_2:
+                    break
+            funding_fee_settlement = False
+            if self.fditv == 8:
+                funding_fee_hours = [0, 8, 16]
+            elif self.fditv == 4:
+                funding_fee_hours = [0, 4, 8, 12, 16, 20]
+            # is_8am_exact = (second_timestamp.hour == 8) & (second_timestamp.minute == 1) & (second_timestamp.second == 0)
+            # is_0am_exact = (second_timestamp.hour == 0) & (second_timestamp.minute == 1) & (second_timestamp.second == 0)
+            # is_4pm_exact = (second_timestamp.hour == 16) & (second_timestamp.minute == 1) & (second_timestamp.second == 0)
+            if (second_timestamp.hour in funding_fee_hours) & (second_timestamp.minute == 1) & (second_timestamp.second == 0):
+                # funding_rates = second_group['funding_rate'].dropna().values
+                swap_bid0_prices = second_group['swap_bid0_price'].dropna().values
+                swap_ask0_prices = second_group['swap_ask0_price'].dropna().values
+                if len(swap_bid0_prices) > 0 and len(swap_ask0_prices) > 0:
+                    mid_swap_price = (swap_bid0_prices[0] + swap_ask0_prices[0]) / 2 
+                else: 
+                    mid_swap_price = 0
+                    print("Mid swap price calculation failed due to missing data.")
+                    print(f"second_timestamp: {second_timestamp}, swap_bid0_prices: {swap_bid0_prices}, swap_ask0_prices: {swap_ask0_prices}")
+                    print(f"second_group:\n{second_group}")
+                
+                print(f"Funding settlement at {second_timestamp}, funding_rate: {funding_rates[0]}, mid_swap_price: {mid_swap_price}")
+                print(f"Before settlement: P1: {self.P1}, P2: {self.P2}, p1_swap: {self.p1_swap}, p2_swap: {self.p2_swap}")
+                self.funding_fee_settlement(funding_rate = funding_rate, mid_swap_price=mid_swap_price)
+                print(f"After settlement: P1: {self.P1}, P2: {self.P2}, p1_swap: {self.p1_swap}, p2_swap: {self.p2_swap}")
+
+            # 记录秒结束时的PnL
+            last_timestamp = second_group.index[-1]
+            pnl1 = self.calculate_pnl(last_timestamp, 1)
+            pnl2 = self.calculate_pnl(last_timestamp, 2)
+            
+            if trade_executed_1 or trade_executed_2:
+                print(f"Time: {last_timestamp}, Strategy1 PnL: {pnl1}, Strategy2 PnL: {pnl2}")
+            if not pd.isna(pnl1) and not pd.isna(pnl2):
+                self.pnl1_history.append(pnl1)
+                self.pnl2_history.append(pnl2)
+                self.params1_history.append((self.strategy1_params[0]+self.strategy1_params[1])/2)
+                self.params2_history.append((self.current_dynamic_params[0]+self.current_dynamic_params[1])/2)
+                self.timestamps.append(last_timestamp)
+
+    def save_results(self):
+        results_dir = Path("./backtest/data/results")
+        results_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 保存PnL
+        df = pd.DataFrame({
+            'timestamp': self.timestamps,
+            'pnl_strategy1': self.pnl1_history,
+            'pnl_strategy2': self.pnl2_history,
+            'param_strategy1': self.params1_history,
+            'param_strategy2': self.params2_history
+        })
+        df.set_index('timestamp', inplace=True)
+        df.to_csv(results_dir / f"dual_strategy_pnl_{self.symbol}_{self.start_time[:10]}.csv")
+        
+        # 保存基差
+        basis_df = self.raw_df.loc[self.timestamps][['basis1_price', 'basis2_price']]
+        basis_df.to_csv(results_dir / f"dual_strategy_basis_{self.symbol}_{self.start_time[:10]}_model{self.model_name}.csv")
+        
+        return df, basis_df
+
+    def plot_results(self):
+        results_dir = Path("./backtest/data/results")
+        results_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 加载基差数据
+        basis_df = self.raw_df.loc[self.timestamps][['basis1_price', 'basis2_price', 'funding_rate']]
+        
+        # 创建子图 (4, 1)
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(12, 15), sharex=True)
+        
+        # PnL 对比
+        ax1.plot(self.timestamps, self.pnl1_history, label=f'Strategy 1 (Static-{self.reference_hours}h)', color='blue')
+        ax1.plot(self.timestamps, self.pnl2_history, label=f'Strategy 2 (Dynamic)', color='red')
+        ax1.set_ylabel('PnL')
+        ax1.set_title(f'Dual Strategy Backtest - {self.symbol}')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        
+        # 基差
+        ax2.scatter(basis_df.index, basis_df['basis1_price'], label='Basis1', color='orange', s=10)
+        ax2.scatter(basis_df.index, basis_df['basis2_price'], label='Basis2', color='green', s=10)
+        ax2.plot(self.timestamps, self.params1_history, label='Strategy 1 (Static)', color='blue')
+        ax2.plot(self.timestamps, self.params2_history, label='Strategy 2 (Dynamic)', color='red')        
+        ax2.set_ylabel('Basis and strategy center')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        
+        # PnL 差异
+        pnl_diff = np.array(self.pnl2_history) - np.array(self.pnl1_history)
+        ax3.plot(self.timestamps, pnl_diff, label='Strategy2 - Strategy1', color='purple')
+        ax3.set_ylabel('PnL Difference')
+        ax3.set_xlabel('Time')
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+
+        # Funding Rate
+        ax4.plot(basis_df.index, basis_df['funding_rate'], label='Funding Rate', color='brown')
+        ax4.set_ylabel('Funding Rate')
+        ax4.legend()
+        ax4.grid(True, alpha=0.3)
+
+        
+        plt.tight_layout()
+        plt.savefig(results_dir / f"dual_strategy_{self.symbol}_{self.start_time[:10]}_model{self.model_name}.png", dpi=150, bbox_inches='tight')
+        plt.close()
+
+def main():
+    experiments = [["AVAX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                   ["AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                   ["FET",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                   ["FET",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                   ["FET",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8],       
+                   ["KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 4],
+                   ["KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 4],
+                   ["KAITO",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 4], 
+                   ["LINK",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                   ["LINK",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                   ["LINK",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8], 
+                   ["TAO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 4],
+                   ["TAO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 4],
+                   ["TAO",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 4], 
+                   ["TRX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                   ["TRX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                   ["TRX",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8], 
+                   ["XRP",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                   ["XRP",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                   ["XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8],
+                   ["ZEC",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8]                                                                
+                   ]
+    MODEL_NAME = "v20260114_2"
+    static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
+    
+    for symbol, start_time, end_time, fditv in experiments:
+        print(f"Running backtest for {symbol} from {start_time} to {end_time}...")
+        backtest = DualStrategyBacktest100ms(symbol, start_time, end_time, static_params, model_name= MODEL_NAME, fditv=fditv)
+        backtest.run_backtest()
+        backtest.save_results()
+        backtest.plot_results()
+        
+        print(f"Final PnL - Strategy 1: {backtest.pnl1_history[-1]:.2f}")
+        print(f"Final PnL - Strategy 2: {backtest.pnl2_history[-1]:.2f}")
+
+if __name__ == "__main__":
+    main()

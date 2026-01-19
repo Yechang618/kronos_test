@@ -23,8 +23,11 @@ from model.kronos import sample_from_logits
 # ==============================
 # 配置
 # ==============================
-TOKENIZER_PATH = "./outputs/models_10min/finetune_tokenizer_all/checkpoints/best_model"
-PREDICTOR_PATH = "./outputs/models_10min/finetune_predictor_all/checkpoints/best_model"
+# TOKENIZER_PATH = "./outputs/models_10min/finetune_tokenizer_all/checkpoints/best_model"
+# PREDICTOR_PATH = "./outputs/models_10min/finetune_predictor_all/checkpoints/best_model"
+
+TOKENIZER_PATH = "./outputs/models/finetune_tokenizer_all/checkpoints/best_model"
+PREDICTOR_PATH = "./outputs/models/finetune_predictor_all/checkpoints/best_model"
 
 symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
@@ -33,13 +36,13 @@ symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "THE", "TON", "TRX", "TURBO",  # 30
            "UNI", "XLM", "XRP", "ZEC", # 34
            ] # 
-SYMBOL = symbols[0]
+SYMBOL = symbols[26]
 START_TIME = "2025-10-04 00:00:00"
 LOOKBACK_WINDOW = 144
 PRED_HORIZON = 10
-PRED_LENGTH = 6
+PRED_LENGTH = 12
 N_SAMPLES = 30
-note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_10min"
+note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_10min_fdr"
 OUTPUT_DIR = Path(f"figures/series_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
