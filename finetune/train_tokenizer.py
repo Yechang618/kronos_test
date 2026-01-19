@@ -18,8 +18,8 @@ from model.kronos import KronosTokenizer
 def create_dataloaders(config):
     train_dataset = QlibDataset('train')
     val_dataset = QlibDataset('val')
-    train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=4, pin_memory=True, drop_last=False)
+    train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=16, pin_memory=True, drop_last=True)
+    val_loader = DataLoader(val_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=16, pin_memory=True, drop_last=False)
     return train_loader, val_loader, train_dataset, val_dataset
 
 def train_model(model, device, config, save_dir):
