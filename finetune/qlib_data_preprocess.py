@@ -22,6 +22,9 @@ def main():
 
     combined_train, combined_val = {}, {}
 
+    print("🔄 Starting preprocessing...")
+    print(f"Processing symbols for {TASK_NAME}...")
+
     for sym in symbols:
         csv_path = f"batch/data/{TASK_NAME}/{sym}USDT_{TASK_NAME}.csv"
         try:
