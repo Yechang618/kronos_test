@@ -35,7 +35,9 @@ def main():
         except Exception as e:
             print(f"Skip {sym}: {e}")
             continue
-
+        
+        print(f"Processing {sym} with {len(df)} rows.")
+        print(df.isna().any(axis=None))
         # 训练+验证段
         train_val_df = df[(df.index >= train_val_start) & (df.index <= train_val_end)]
         n_total = len(train_val_df)

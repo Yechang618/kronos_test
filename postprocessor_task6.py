@@ -50,7 +50,7 @@ for i in range(len(symbols)):
 
     # 可选：移除全 NaN 行（如 funding_rate 初始缺失）
     df_kronos = df_kronos.dropna(how="all")
-    df_kronos = df_kronos.fillna(method="ffill").fillna(method="bfill")
+    df_kronos = df_kronos.fillna(method="ffill")
     # 可选：裁剪极端值
     df_kronos = df_kronos.clip(-10,10)
     df_kronos = df_kronos.dropna()
