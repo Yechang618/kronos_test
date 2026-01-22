@@ -10,7 +10,7 @@ class Config:
         # 路径
         self.dataset_path_1min = "./datasets/task3/processed_datasets"
         self.dataset_path_10min = "./datasets/task4/processed_datasets"
-        self.dataset_path = "./datasets/task5/processed_datasets"
+        self.dataset_path = "./datasets/task6/processed_datasets"
 
         # 时间窗口
         self.lookback_window = 480
