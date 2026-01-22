@@ -13,8 +13,8 @@ class Config:
         self.dataset_path = "./datasets/task6/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 480
-        self.predict_window = 480
+        self.lookback_window = 240
+        self.predict_window = 120
         self.max_context = 2048
         self.clip = 5.0
 
@@ -23,7 +23,7 @@ class Config:
         self.batch_size = 10
         self.log_interval = 100
         self.epochs = 100
-        self.n_train_iter = 100000 * self.batch_size
+        self.n_train_iter = 50000 * self.batch_size
         self.n_val_iter = 4000 * self.batch_size
 
         self.tokenizer_learning_rate = 5e-4
