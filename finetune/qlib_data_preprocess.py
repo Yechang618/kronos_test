@@ -36,7 +36,12 @@ def main():
             print(f"Skip {sym}: {e}")
             continue
         
-        print(f"Processing {sym} with {len(df)} rows.")
+        print(f"Processing {sym} with {len(df)} rows, csv path: {csv_path}.")
+        print(df.isna().any(axis=None))
+        if df.isna().any(axis=None):
+            print(f"Warning: {sym} contains NaN values. Filling forward.")
+            df = df.fillna(method="ffill").dropna()
+        print(f"After NaN handling, {sym} has {len(df)} rows.")
         print(df.isna().any(axis=None))
         # 训练+验证段
         train_val_df = df[(df.index >= train_val_start) & (df.index <= train_val_end)]
