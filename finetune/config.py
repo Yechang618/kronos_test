@@ -20,9 +20,9 @@ class Config:
 
         # 训练参数
         self.seed = 42
-        self.batch_size = 60
+        self.batch_size = 10
         self.log_interval = 100
-        self.epochs = 20
+        self.epochs = 100
         self.n_train_iter = 100000 * self.batch_size
         self.n_val_iter = 4000 * self.batch_size
 
