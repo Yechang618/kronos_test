@@ -26,8 +26,20 @@ from model.kronos import sample_from_logits
 # TOKENIZER_PATH = "./outputs/models_10min/finetune_tokenizer_all/checkpoints/best_model"
 # PREDICTOR_PATH = "./outputs/models_10min/finetune_predictor_all/checkpoints/best_model"
 
-TOKENIZER_PATH = "./outputs/models/finetune_tokenizer_all/checkpoints/best_model"
-PREDICTOR_PATH = "./outputs/models/finetune_predictor_all/checkpoints/best_model"
+# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_long", 144, 48 #Should be the same as _144p48
+MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_144p48", 144, 48
+# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "", 144, 12
+
+TOKENIZER_PATH = f"./outputs/models{MODEL_NOTE}/finetune_tokenizer_all/checkpoints/best_model"
+PREDICTOR_PATH = f"./outputs/models{MODEL_NOTE}/finetune_predictor_all/checkpoints/best_model"
+
+# TOKENIZER_PATH_long = "./outputs/models_long/finetune_tokenizer_all/checkpoints/best_model"
+# PREDICTOR_PATH_long = "./outputs/models_long/finetune_predictor_all/checkpoints/best_model"
+
+# TOKENIZER_PATH_1 = "./outputs/models_144p48/finetune_tokenizer_all/checkpoints/best_model"
+# PREDICTOR_PATH_1 = "./outputs/models_144p48/finetune_predictor_all/checkpoints/best_model"
+
+TASK = "task5"
 
 symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
@@ -37,12 +49,12 @@ symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "UNI", "XLM", "XRP", "ZEC", # 34
            ] # 
 SYMBOL = symbols[26]
-START_TIME = "2025-10-04 00:00:00"
-LOOKBACK_WINDOW = 144
+START_TIME = "2025-10-02 07:50:00"
+# LOOKBACK_WINDOW = 144
 PRED_HORIZON = 10
-PRED_LENGTH = 12
+# PRED_LENGTH = 12
 N_SAMPLES = 30
-note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_10min_fdr"
+note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_10min_fdr{MODEL_NOTE}"
 OUTPUT_DIR = Path(f"figures/series_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
@@ -174,7 +186,7 @@ def main():
     predictor = KronosPredictor(model, tokenizer, device, max_context=2048)
 
     print("📊 Loading test data...")
-    with open(f"./datasets/task4/processed_datasets/{SYMBOL}/test_data.pkl", 'rb') as f:
+    with open(f"./datasets/{TASK}/processed_datasets/{SYMBOL}/test_data.pkl", 'rb') as f:
         data = pickle.load(f)
     # print("Data keys:", data.keys())
     # print(data)
@@ -311,9 +323,16 @@ def main():
 
         # (2) Volume and Amount
         ax = axes1[1]
+        if TASK == "task5":
+            label_volume = 'Funding Rate'
+            label_amount = 'Log(Spot/Index)'
+        else:
+            label_volume = 'True Swap Log(Bid/Ask)'
+            label_amount = 'True Spot Log(Bid/Ask)'
         # Volume
-        ax.plot(y_time, true_y_values[:, 4], color='black', linewidth=1.5, label='True Swap Log(Bid/Ask)')
+
         ax.plot(y_time, pred_mean[i,:, 4], 'o-', color='red', linewidth=2, label='Predicted Mean')
+        ax.plot(y_time, true_y_values[:, 4], color='purple', linewidth=1.5, label=label_volume)
         ax.fill_between(
             y_time,
             pred_mean[i, :, 4] - pred_std[i, :, 4],
@@ -321,8 +340,9 @@ def main():
             color='lightcoral', alpha=0.3
         )
         # Amount
-        ax.plot(y_time, true_y_values[:, 5], color='purple', linewidth=1.5, label='True Spot Log(Bid/Ask)')
+
         ax.plot(y_time, pred_mean[i,:, 5], 'o-', color='blue', linewidth=2, label='Predicted Mean')
+        ax.plot(y_time, true_y_values[:, 5], color='cyan', linewidth=1.5, label=label_amount)        
         ax.fill_between(
             y_time,
             pred_mean[i, :, 5] - pred_std[i, :, 5],

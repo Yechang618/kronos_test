@@ -22,6 +22,14 @@ from model.kronos import Kronos, KronosTokenizer
 from model.kronos import sample_from_logits
 
 from hourly_dynamic_params import calculate_hourly_trading_params
+
+MODEL_NOTE, LOOKBACK, PRED_LENGTH = "_144p48", 144, 48
+# MODEL_NOTE, LOOKBACK, PRED_LENGTH = "", 144, 12
+
+TOKENIZER_PATH = f"./outputs/models{MODEL_NOTE}/finetune_tokenizer_all/checkpoints/best_model"
+PREDICTOR_PATH = f"./outputs/models{MODEL_NOTE}/finetune_predictor_all/checkpoints/best_model"
+
+
 class DualStrategyBacktest100ms:
     def __init__(self, symbol, start_time, end_time, static_params, model_name = "default", fditv=8):
         """
@@ -118,12 +126,8 @@ class DualStrategyBacktest100ms:
         """初始化 Kronos 预测器"""
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        self.tokenizer = KronosTokenizer.from_pretrained(
-            "./outputs/models/finetune_tokenizer_all/checkpoints/best_model"
-        ).to(device).eval()
-        self.predictor_model = Kronos.from_pretrained(
-            "./outputs/models/finetune_predictor_all/checkpoints/best_model"
-        ).to(device).eval()
+        self.tokenizer = KronosTokenizer.from_pretrained(TOKENIZER_PATH).to(device).eval()
+        self.predictor_model = Kronos.from_pretrained(PREDICTOR_PATH).to(device).eval()
         
         class KronosPredictor:
             def __init__(self, model, tokenizer, device, max_context=2048):
@@ -278,10 +282,10 @@ class DualStrategyBacktest100ms:
         """每10分钟更新动态交易参数"""
         # 获取过去144个10分钟K线（24小时）
         # 预测未来1个10分钟K线（30个样本）
-        LOOKBACK = 144
+        # LOOKBACK = 144
         nHour = LOOKBACK // 6  # 10分钟K线，每小时6根
         N_SAMPLES = 30
-        PRED_LENGTH = 12
+        # PRED_LENGTH = 12
         start_time = current_time - pd.Timedelta(hours=nHour)
         df_100ms = self.raw_df[start_time:current_time+ pd.Timedelta(minutes=10*PRED_LENGTH)]
         # print("Updating dynamic params at", current_time)
@@ -706,7 +710,7 @@ class DualStrategyBacktest100ms:
         
         # 保存基差
         basis_df = self.raw_df.loc[self.timestamps][['basis1_price', 'basis2_price']]
-        basis_df.to_csv(results_dir / f"dual_strategy_basis_{self.symbol}_{self.start_time[:10]}_model{self.model_name}.csv")
+        basis_df.to_csv(results_dir / f"dual_strategy_basis_{self.symbol}_{self.start_time[:10]}_model{self.model_name}{MODEL_NOTE}.csv")
         
         return df, basis_df
 
@@ -753,7 +757,7 @@ class DualStrategyBacktest100ms:
 
         
         plt.tight_layout()
-        plt.savefig(results_dir / f"dual_strategy_{self.symbol}_{self.start_time[:10]}_model{self.model_name}.png", dpi=150, bbox_inches='tight')
+        plt.savefig(results_dir / f"dual_strategy_{self.symbol}_{self.start_time[:10]}_model{self.model_name}{MODEL_NOTE}.png", dpi=150, bbox_inches='tight')
         plt.close()
 
 def main():

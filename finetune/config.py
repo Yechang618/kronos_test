@@ -13,16 +13,16 @@ class Config:
         self.dataset_path = "./datasets/task5/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 144
-        self.predict_window = 48
+        self.lookback_window = 480
+        self.predict_window = 480
         self.max_context = 2048
         self.clip = 5.0
 
         # 训练参数
         self.seed = 42
-        self.batch_size = 10
+        self.batch_size = 60
         self.log_interval = 100
-        self.epochs = 30
+        self.epochs = 20
         self.n_train_iter = 100000 * self.batch_size
         self.n_val_iter = 4000 * self.batch_size
 
@@ -43,7 +43,7 @@ class Config:
 
         # 测试
         self.backtest_result_path = "./outputs/backtest_results"
-        self.backtest_save_folder_name = "task5_multisymbol_backtest"
+        self.backtest_save_folder_name = "task6_multisymbol_backtest"
         self.backtest_time_range = ["2025-10-01", "2025-10-29"]
 
         # Comet（禁用）
