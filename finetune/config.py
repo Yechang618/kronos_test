@@ -13,7 +13,7 @@ class Config:
         self.dataset_path = "./datasets/task6/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 240
+        self.lookback_window = 480
         self.predict_window = 120
         self.max_context = 2048
         self.clip = 5.0
