@@ -22,6 +22,7 @@ from model.kronos import Kronos, KronosTokenizer
 from model.kronos import sample_from_logits
 
 from hourly_dynamic_params import calculate_hourly_trading_params
+from statsmodels.stats.weightstats import DescrStatsW
 
 MODEL_NOTE, LOOKBACK, PRED_LENGTH = "_144p48", 144, 48
 # MODEL_NOTE, LOOKBACK, PRED_LENGTH = "", 144, 12
@@ -58,6 +59,8 @@ class DualStrategyBacktest100ms:
         # Premium cost
         self.premium_tt = 0.0002
         self.premium_mt = 0.0006
+        # self.premium_tt = 0.0003
+        # self.premium_mt = 0.0008
 
 
         # Total cost
@@ -87,6 +90,11 @@ class DualStrategyBacktest100ms:
         self.strategy1_params = [self.c_tt + self.premium_tt, -self.c_tt - self.premium_tt, 
                                        self.c_mt + self.premium_mt, -self.c_mt - self.premium_mt, 
                                        self.c_tm + self.premium_mt, -self.c_tm - self.premium_mt]
+        
+        self.pred_sequences = None
+        self.pred_weights = None
+        self.sigma = 1.0  # 观测噪声标准差
+
         self.predictor = None
         self.tokenizer = None
 
@@ -224,9 +232,6 @@ class DualStrategyBacktest100ms:
         close_prices = resampled['basis_mid_price'].last()
         
         # 计算 High/Low (取 spot bid0, spot ask0, swap bid0, swap ask0 的极值)
-        # price_cols = ['spot_bid0_price', 'spot_ask0_price', 'swap_bid0_price', 'swap_ask0_price']
-        # high_prices = resampled[price_cols].max().max(axis=1)
-        # low_prices = resampled[price_cols].min().min(axis=1)
         high_prices = resampled['basis1_price'].quantile(0.95, interpolation='nearest')
         low_prices = resampled['basis2_price'].quantile(0.05, interpolation='nearest')
 
@@ -284,7 +289,7 @@ class DualStrategyBacktest100ms:
         # 预测未来1个10分钟K线（30个样本）
         # LOOKBACK = 144
         nHour = LOOKBACK // 6  # 10分钟K线，每小时6根
-        N_SAMPLES = 30
+        N_SAMPLES = 100
         # PRED_LENGTH = 12
         start_time = current_time - pd.Timedelta(hours=nHour)
         df_100ms = self.raw_df[start_time:current_time+ pd.Timedelta(minutes=10*PRED_LENGTH)]
@@ -362,6 +367,7 @@ class DualStrategyBacktest100ms:
         # print(f"current_time: {current_time}, x shape: {x.shape}, y_stamp: {y_stamp}")      
         # 预测
         preds = []
+        pred_sequences = []
         for _ in range(N_SAMPLES):
             pred = self.predictor.predict(
                 x=x_norm,
@@ -377,9 +383,13 @@ class DualStrategyBacktest100ms:
             # print(pred.shape)
             for j in range(pred.shape[0]):
                 pred[j, :] = pred[j, :]* (x_std + 1e-5) + x_mean  # 反归一化
-            # print(pred[0])
+            # print(f"Sampled prediction: {pred}")
             preds.append(pred[-1])
-        
+            pred_sequences.append(pred)
+
+        self.pred_weights = np.array([1.0 / N_SAMPLES] * N_SAMPLES)
+        self.pred_sequences = np.array(pred_sequences)
+
         if not preds:
             return
             
@@ -400,8 +410,6 @@ class DualStrategyBacktest100ms:
         if high_estimate - low_estimate > c_mt_high - c_mt_low:
             d = (high_estimate + low_estimate - (c_mt_high + c_mt_low)) / 2
         # else:
-        # if high_estimate >= c_mt_high and c_mt_low >= low_estimate:
-        #     d = 0
         elif high_estimate <= c_mt_high and low_estimate >= c_mt_low:
             d = 0.1*theoretical_mid - 0.1*(c_mt_high + c_mt_low) / 2
             # d = 0
@@ -412,16 +420,91 @@ class DualStrategyBacktest100ms:
         else:
             print("Unexpected case in dynamic param adjustment")
             print(high_estimate, low_estimate, c_mt_high, c_mt_low)
-        # if d == 0:
-        #     print("No adjustment to dynamic params")
-        #     print(high_estimate, low_estimate, c_mt_high, c_mt_low)
-        # 设置动态参数
+
         self.current_dynamic_params = [
             c_tt_high + d, c_tt_low + d,
             c_mt_high + d, c_mt_low + d,
             c_tm_high + d, c_tm_low + d
         ]
 
+    def update_dynamic_params_reweight(self, current_time):
+        """每10分钟更新动态交易参数（旧版，仅供参考）"""
+        # 获取过去10min的数据
+                
+        # config = Config()
+        # feature_list = config.feature_list
+
+        df_100ms  = self.raw_df[(current_time- pd.Timedelta(minutes=10)):current_time]
+        df_100ms = df_100ms.ffill()
+
+        # print("Updating dynamic params at", current_time)
+        # print(df_100ms.info())
+        if len(df_100ms) == 0:
+            return
+            
+        df_10min = self.resample_to_10min(df_100ms)
+        if df_10min.empty:
+            return
+
+        y_obs = df_10min['close'].values.astype(np.float32)[-1]  # 观测值为最新的Close价格
+
+        
+        preds = self.pred_sequences[:,0,:]
+        self.pred_sequences = self.pred_sequences[:,1: , :]
+        prior = preds[:, 0]  # 预测的Close价格
+        # Compute likelihood p(y_obs | x_i) for each particle
+        sigma = self.sigma
+        residuals = y_obs - prior
+        likelihoods = np.exp(-0.5 * (residuals / sigma) ** 2) / (np.sqrt(2 * np.pi) * sigma)
+        # print(f"Observation: {y_obs}, Prior Means: {prior}, Likelihoods: {likelihoods}")
+        # print(f"Residuals: {residuals}")
+        # Update weights (unnormalized)
+        unnormalized_weights = self.pred_weights * likelihoods
+
+        # Normalize
+        weight_sum = np.sum(unnormalized_weights)
+        if weight_sum == 0:
+            # Avoid division by zero; fallback to uniform weights
+            print("All weights zero after update, resetting to uniform weights.")
+            updated_weights = np.ones_like(self.pred_weights) / len(self.pred_weights)
+        else:
+            updated_weights = unnormalized_weights / weight_sum
+        self.pred_weights = updated_weights
+        # print(f"Updated Weights: {self.pred_weights}")
+        high = DescrStatsW(preds[:, 1], weights=self.pred_weights)
+        low = DescrStatsW(preds[:, 2], weights=self.pred_weights)
+        # 计算 High 和 Low 的统计量
+        high_mean = high.mean
+        high_std = high.std
+        low_mean = low.mean
+        low_std = low.std
+        # theoretical_mid = (x[-144:,1].mean()+ x[-144:,2].mean()) / 2  # 过去10根K线的Close均值作为中点参考
+        # 计算动态中点
+        # dynamic_midpoint = (high_mean + high_std + low_mean - low_std) / 2
+        high_estimate = high_mean + high_std
+        low_estimate = low_mean - low_std
+        c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_dynamic_params
+        d = 0
+        if high_estimate - low_estimate > c_mt_high - c_mt_low:
+            d = (high_estimate + low_estimate - (c_mt_high + c_mt_low)) / 2
+        # else:
+        elif high_estimate <= c_mt_high and low_estimate >= c_mt_low:
+            d =  0.1*(high_estimate + low_estimate - (c_mt_high + c_mt_low)) / 2
+            # d = 0
+        elif high_estimate > c_mt_high and low_estimate >= c_mt_low:
+            d = high_estimate - c_mt_high
+        elif high_estimate <= c_mt_high and low_estimate < c_mt_low:
+            d = low_estimate - c_mt_low
+        else:
+            print("Unexpected case in dynamic param adjustment")
+            print(high_estimate, low_estimate, c_mt_high, c_mt_low)
+
+        self.current_dynamic_params = [
+            c_tt_high + d, c_tt_low + d,
+            c_mt_high + d, c_mt_low + d,
+            c_tm_high + d, c_tm_low + d
+        ]
+        
     def get_price_with_slippage(self, price_col, next_price_col, timestamp):
         if timestamp not in self.raw_df.index:
             return np.nan
@@ -478,16 +561,7 @@ class DualStrategyBacktest100ms:
             #     break
             if start_hour <= timestamp.hour <= end_hour:
                 seconds_to_settle = (end_hour - timestamp.hour) * 3600 + (60 - timestamp.minute) * 60 - timestamp.second
-                factor = np.exp(-seconds_to_settle / (60*60*self.fditv/2))
-        # elif 12 <= timestamp.hour <= 15:
-        #     seconds_to_settle = (15 - timestamp.hour) * 3600 + (60 - timestamp.minute) * 60 - timestamp.second
-        #     factor = np.exp(-seconds_to_settle / 60*60*4)
-        # elif 20 <= timestamp.hour <= 23:
-        #     seconds_to_settle = (23 - timestamp.hour) * 3600 + (60 - timestamp.minute) * 60 - timestamp.second
-        #     factor = np.exp(-seconds_to_settle / 60*60*4)
-        # else:
-        #     factor = 0
-        
+                factor = 0.2 + 0.8*np.exp(-seconds_to_settle / (60*60*self.fditv/2))
             
         # 开仓检查（三种模式）
         if (row['basis1_price'] > tt_open  - funding_rate * factor and P > 0):
@@ -614,6 +688,7 @@ class DualStrategyBacktest100ms:
         
         last_update_time_1 = None  # 策略1参数更新时间
         last_update_time_2 = None  # 策略2参数更新时间
+        last_reweight_time_2 = None  # 策略2重加权更新时间
     
         for second_timestamp, second_group in df_grouped:
             # is_8am_exact = (second_timestamp.hour == 2) & (second_timestamp.minute == 40) & (second_timestamp.second == 0)
@@ -639,7 +714,13 @@ class DualStrategyBacktest100ms:
                 second_timestamp - last_update_time_2 >= pd.Timedelta(minutes=30)):
                 self.update_dynamic_params(second_timestamp)  # 这是策略2的更新
                 last_update_time_2 = second_timestamp
-            
+                last_reweight_time_2 = second_timestamp
+            elif self.pred_sequences is None or last_reweight_time_2 is None or len(self.pred_sequences.shape) < 3 or self.pred_sequences.shape[1] == 0:
+                pass
+            elif (second_timestamp - last_reweight_time_2 >= pd.Timedelta(minutes=10)):
+                self.update_dynamic_params_reweight(second_timestamp) 
+                last_reweight_time_2 = second_timestamp
+
             # 执行交易时使用各自的参数
             trade_executed_1 = trade_executed_2 = False
             for timestamp in second_group.index:
@@ -761,17 +842,17 @@ class DualStrategyBacktest100ms:
         plt.close()
 
 def main():
-    experiments = [["AVAX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
-                   ["AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
-                   ["FET",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
-                   ["FET",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
-                   ["FET",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8],       
-                   ["KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 4],
-                   ["KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 4],
-                   ["KAITO",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 4], 
-                   ["LINK",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
-                   ["LINK",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
-                   ["LINK",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8], 
+    experiments = [#["AVAX",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                #    ["AVAX",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                #    ["FET",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                #    ["FET",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                #    ["FET",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8],       
+                #    ["KAITO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 4],
+                #    ["KAITO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 4],
+                #    ["KAITO",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 4], 
+                #    ["LINK",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 8],
+                #    ["LINK",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 8],
+                #    ["LINK",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8], 
                    ["TAO",  "2025-10-01 00:00:00", "2025-10-07 23:59:59", 4],
                    ["TAO",  "2025-10-14 00:00:00", "2025-10-20 23:59:59", 4],
                    ["TAO",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 4], 
@@ -783,7 +864,7 @@ def main():
                    ["XRP",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8],
                    ["ZEC",  "2025-10-22 00:00:00", "2025-10-28 23:59:59", 8]                                                                
                    ]
-    MODEL_NAME = "v20260114_2"
+    MODEL_NAME = "v20260123_2_rw"
     static_params = [0.01, -0.01, 0.008, -0.008, 0.009, -0.009]
     
     for symbol, start_time, end_time, fditv in experiments:

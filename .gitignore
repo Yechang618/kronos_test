@@ -75,6 +75,7 @@ temp/
 tmp/
 
 datasets
+dataset
 batch
 trained
 trained_models
