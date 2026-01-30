@@ -139,11 +139,11 @@ class KlineVisualizer:
         ax.plot(df_plot.index[-1], latest['close'], 'bo', markersize=10, label=f'Latest Close: {latest["close"]:.4f}')
         
         # 格式化
-        ax.set_title(f'{symbol} 10分钟K线历史数据 ({self.exchange.upper()})\n'
-                    f'数据点: {len(df_plot)} | 时间范围: {df_plot.index[0].strftime("%Y-%m-%d %H:%M")} ~ {df_plot.index[-1].strftime("%Y-%m-%d %H:%M")}',
+        ax.set_title(f'{symbol} 10 min K-Line historical data ({self.exchange.upper()})\n'
+                    f'Data points: {len(df_plot)} | Time range: {df_plot.index[0].strftime("%Y-%m-%d %H:%M")} ~ {df_plot.index[-1].strftime("%Y-%m-%d %H:%M")}',
                     fontsize=14, fontweight='bold', pad=20)
-        ax.set_xlabel('时间 (UTC)', fontsize=12)
-        ax.set_ylabel('Basis 价格', fontsize=12)
+        ax.set_xlabel('Time (UTC)', fontsize=12)
+        ax.set_ylabel('Basis Price', fontsize=12)
         ax.legend(loc='best', fontsize=10)
         ax.grid(True, alpha=0.3, linestyle='--')
         
@@ -185,37 +185,37 @@ class KlineVisualizer:
         fig, ax = plt.subplots(figsize=(14, 8))
         
         # 绘制历史数据（实线）
-        ax.plot(df_hist.index, df_hist['high'], 'g-', linewidth=2, label='历史 High', alpha=0.7)
-        ax.plot(df_hist.index, df_hist['close'], 'b-', linewidth=2.5, label='历史 Close', alpha=0.8)
-        ax.plot(df_hist.index, df_hist['low'], 'r-', linewidth=2, label='历史 Low', alpha=0.7)
+        ax.plot(df_hist.index, df_hist['high'], 'g-', linewidth=2, label='Historical High', alpha=0.7)
+        ax.plot(df_hist.index, df_hist['close'], 'b-', linewidth=2.5, label='Historical Close', alpha=0.8)
+        ax.plot(df_hist.index, df_hist['low'], 'r-', linewidth=2, label='Historical Low', alpha=0.7)
         
         # 绘制预测数据（虚线）
-        ax.plot(pred_times, pred_high, 'g--', linewidth=2.5, label='预测 High', alpha=0.9)
-        ax.plot(pred_times, pred_close, 'b--', linewidth=3, label='预测 Close', alpha=0.95)
-        ax.plot(pred_times, pred_low, 'r--', linewidth=2.5, label='预测 Low', alpha=0.9)
+        ax.plot(pred_times, pred_high, 'g--', linewidth=2.5, label='Predicted High', alpha=0.9)
+        ax.plot(pred_times, pred_close, 'b--', linewidth=3, label='Predicted Close', alpha=0.95)
+        ax.plot(pred_times, pred_low, 'r--', linewidth=2.5, label='Predicted Low', alpha=0.9)
         
         # 填充预测区间
         ax.fill_between(pred_times, pred_low, pred_high, 
-                        color='purple', alpha=0.15, label='预测区间 (High-Low)')
+                        color='purple', alpha=0.15, label='Predicted Range (High-Low)')
         
         # 标记预测起始点
         if not df_hist.empty:
             connect_point = df_hist.iloc[-1]['close']
-            ax.plot(df_hist.index[-1], connect_point, 'ko', markersize=8, label=f'预测起始点 ({df_hist.index[-1].strftime("%H:%M")})')
+            ax.plot(df_hist.index[-1], connect_point, 'ko', markersize=8, label=f'Prediction Start Point ({df_hist.index[-1].strftime("%H:%M")})')
         
         # 添加预测时间范围标注
-        pred_range = f'预测时间范围: {pred_times[0].strftime("%H:%M")} ~ {pred_times[-1].strftime("%H:%M")} UTC'
+        pred_range = f'Prediction Time Range: {pred_times[0].strftime("%H:%M")} ~ {pred_times[-1].strftime("%H:%M")} UTC'
         ax.text(0.02, 0.98, pred_range, transform=ax.transAxes, 
                fontsize=11, verticalalignment='top', 
                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
         
         # 格式化
-        title = (f'{symbol} Basis 价格预测 ({self.exchange.upper()})\n'
-                f'预测生成时间: {pred_time.strftime("%Y-%m-%d %H:%M UTC")} | '
-                f'预测未来60分钟 (6个10分钟K线)')
+        title = (f'{symbol} Basis Price Prediction ({self.exchange.upper()})\n'
+                f'Prediction Generated At: {pred_time.strftime("%Y-%m-%d %H:%M UTC")} | '
+                f'Predicting Next 60 Minutes (6x10min K-lines)')
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-        ax.set_xlabel('时间 (UTC)', fontsize=12)
-        ax.set_ylabel('Basis 价格', fontsize=12)
+        ax.set_xlabel('Time (UTC)', fontsize=12)
+        ax.set_ylabel('Basis Price', fontsize=12)
         ax.legend(loc='best', fontsize=10, ncol=2)
         ax.grid(True, alpha=0.3, linestyle='--')
         
