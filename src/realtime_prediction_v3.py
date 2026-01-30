@@ -657,8 +657,8 @@ def report_to_feishu(report_dict: Dict) -> None:
     url_report = CONFIG.url_report
     my_bot = mb.Bot(my_url)
     report_bot = mb.Bot(url_report)
-    msg_detail = ''
-    msg = ''
+    msg_detail = '=============================\n'
+    msg = '=============================\n'
     dic = {}
     for symbol in report_dict.keys():
         results = report_dict[symbol]
@@ -666,13 +666,11 @@ def report_to_feishu(report_dict: Dict) -> None:
         #  'high_mean', 'high_std', 'low_mean', 'low_std'}
         dic[symbol] = [results['high_mean_last'] + results['high_std_last'], 
                        results['low_mean_last'] - results['low_std_last']]
-        msg += f"Symbol: {symbol}, Predicted High Mean: {results['high_mean_last']:.6f}, High Std: {results['high_std_last']:.6f}, \n" \
-                      f"Predicted Low Mean: {results['low_mean_last']:.6f}, Low Std: {results['low_std_last']:.6f}\n"
+        msg += f"Symbol: {symbol}, High = {results['high_mean_last']:.6f} + {results['high_std_last']:.6f}, Low = {results['low_mean_last']:.6f} - {results['low_std_last']:.6f}\n"
         
-        msg_detail += f"Symbol: {symbol}, Predicted High Mean: {results['high_mean_last']:.6f}, High Std: {results['high_std_last']:.6f}, \n" \
-                      f"Predicted Low Mean: {results['low_mean_last']:.6f}, Low Std: {results['low_std_last']:.6f}\n" \
-                        f"Predicted High Mean (Current): {results['high_mean']:.6f}, High Std (Current): {results['high_std']:.6f}, \n" \
-                        f"Predicted Low Mean (Current): {results['low_mean']:.6f}, Low Std (Current): {results['low_std']:.6f}\n"
+        msg_detail += f"------------------------ {symbol} --------------------- \n"
+        msg_detail += f"Last: ({results['high_mean_last']:.6f} + {results['high_std_last']:.6f}), ({results['low_mean_last']:.6f} - {results['low_std_last']:.6f})\n" \
+                        f"Curr: ({results['high_mean']:.6f} + {results['high_std']:.6f}), ({results['low_mean']:.6f} - {results['low_std']:.6f})\n"
 
     my_bot.text(msg_detail)
     report_bot.text(msg)
