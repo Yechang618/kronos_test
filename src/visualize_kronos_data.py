@@ -334,9 +334,9 @@ class KlineVisualizer:
 
 def main():
     parser = argparse.ArgumentParser(description="Kronos数据可视化工具")
-    parser.add_argument("--exchange", type=str, default="binance", 
+    parser.add_argument("--exchange", type=str, default="kucoin", 
                        choices=["binance", "kucoin"],
-                       help="交易所数据源 (默认: binance)")
+                       help="交易所数据源 (默认: kucoin)")
     parser.add_argument("--kline", action="store_true", 
                        help="仅可视化K线历史数据")
     parser.add_argument("--pred", action="store_true", 
