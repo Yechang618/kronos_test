@@ -675,7 +675,7 @@ def report_to_feishu(report_dict: Dict) -> None:
                         f"Predicted Low Mean (Current): {results['low_mean']:.6f}, Low Std (Current): {results['low_std']:.6f}\n"
 
     my_bot.text(msg_detail)
-    # report_bot.text(msg)
+    report_bot.text(msg)
 
     # Redis发布消息
     # r = Redis(host=config['redisUrl'], db=1, password=config['redisPass'])
