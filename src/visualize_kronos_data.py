@@ -32,7 +32,7 @@ class KlineVisualizer:
         self.kline_dir = Path("./datasets/temp") / self.exchange
         self.pred_dir = Path("./data/predictions") / self.exchange
         self.kline_fig_dir = Path("./figures/temp/kline") / self.exchange
-        self.pred_fig_dir = Path("./data/predictions") / self.exchange
+        self.pred_fig_dir = Path("./figures/temp/prediction") / self.exchange
         
         # 创建输出目录
         self.kline_fig_dir.mkdir(parents=True, exist_ok=True)
