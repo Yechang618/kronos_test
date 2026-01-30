@@ -301,6 +301,7 @@ class DynamicSignalGenerator:
         high_estimate = high_mean + high_std
         low_estimate = low_mean - low_std
         self.estimates = [high_mean, high_std, low_mean, low_std]
+        self.estimates_last = self.estimates.copy()
         
         # 调整阈值中点
         if self.current_params:
@@ -338,7 +339,7 @@ class DynamicSignalGenerator:
             return self.current_params
 
         # 1. 重加权
-        prior = self.pred_sequences[:, 0, 0]  # 预测的Close
+        prior = self.pred_sequences[:, 0, 3]  # 预测的Close[3]; Open[0], High[1], Low[2], Close[3], Volume[4], Amount[5]
         residuals = observed_price - prior
         likelihoods = np.exp(-0.5 * (residuals / self.sigma) ** 2) / (np.sqrt(2 * np.pi) * self.sigma)
         unnormalized = self.pred_weights * likelihoods
@@ -359,6 +360,15 @@ class DynamicSignalGenerator:
         low_estimate = low.mean - low.std
 
         self.estimates = [high.mean, high.std, low.mean, low.std]
+
+        # 3.1. 重新计算长期阈值
+        high_last = DescrStatsW(self.pred_sequences[:, -1, 1], weights=self.pred_weights)
+        low_last = DescrStatsW(self.pred_sequences[:, -1, 2], weights=self.pred_weights)
+        high_estimate = high_last.mean + high_last.std
+        low_estimate = low_last.mean - low_last.std
+
+        self.estimates_last = [high_last.mean, high_last.std, low_last.mean, low_last.std]
+
         
         if self.current_params:
             c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_params

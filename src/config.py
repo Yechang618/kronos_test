@@ -6,8 +6,8 @@ class Config:
         # 数据字段（适配 CSV）
         self.feature_list = ['open', 'high', 'low', 'close', 'volume', 'amount']
         self.time_feature_list = ['minute', 'hour', 'weekday', 'day', 'month']
-        self.symbol_list = ['BTC', 'ETH', 'XRP', 'LTC', 'BCH', 'TAO']
-        self.symbol_list_kc = ['BTC', 'ETH', 'XRP', 'LTC', 'BCH', 'TAO']
+        self.symbol_list = ['BTC', 'XMR', 'WCT', 'TON', 'ZEC', 'ZBT', 'BNB']
+        self.symbol_list_kc = ['BTC', 'XMR', 'WCT', 'TON', 'ZEC', 'ZBT', 'BNB']
 
         # 路径
         self.dataset_path = "./datasets/temp"
@@ -34,3 +34,7 @@ class Config:
 
         # Comet（禁用）
         self.use_comet = False
+
+        # Feishu机器人配置
+        self.url_report = "https://open.feishu.cn/open-apis/bot/v2/hook/c5634e62-18fa-45e7-9af3-a2dfea7be4eb"
+        self.my_url = "https://open.feishu.cn/open-apis/bot/v2/hook/4519b97c-d166-430f-87bc-13a6b8d35dac"

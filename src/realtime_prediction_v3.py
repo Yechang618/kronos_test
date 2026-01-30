@@ -33,6 +33,15 @@ sys.path.insert(0, str(root_dir / 'src'))
 from config import Config
 from KronosPredictor import KronosPredictor, DynamicSignalGenerator
 
+from redis import Redis
+import yaml
+from util import DecimalEncoder
+import message_bot as mb
+
+# config_path = "./config/config.yaml"
+# with open(config_path, 'r', encoding='utf-8') as f:
+#     config = yaml.safe_load(f)
+
 # 配置参数
 CONFIG = Config()
 MAX_ROWS = 144
@@ -386,7 +395,7 @@ class RealtimeKlineManager:
             # 计算基础指标
             spot_mid = (data_point['spot']['bid0_price'] + data_point['spot']['ask0_price']) / 2
             swap_mid = (data_point['swap']['bid0_price'] + data_point['swap']['ask0_price']) / 2
-            basis_mid = swap_mid - spot_mid
+            basis_mid = np.log(swap_mid) - np.log(spot_mid)
             
             # 计算basis_bid和basis_ask（使用log差）
             basis_bid = np.log(data_point['swap']['bid0_price']) - np.log(data_point['spot']['ask0_price'])
@@ -639,6 +648,42 @@ def get_previous_window_bounds(current_time: datetime) -> Tuple[datetime, dateti
     
     return prev_window_start, prev_window_end
 
+def report_to_feishu(report_dict: Dict) -> None:
+    """通过飞书机器人发送报告"""
+    if not CONFIG.my_url:
+        print("[WARN] 未配置飞书Webhook URL，跳过发送报告")
+        return
+    my_url = CONFIG.my_url
+    url_report = CONFIG.url_report
+    my_bot = mb.Bot(my_url)
+    report_bot = mb.Bot(url_report)
+    msg_detail = ''
+    msg = ''
+    dic = {}
+    for symbol in report_dict.keys():
+        results = report_dict[symbol]
+        # {'high_mean_last', 'high_std_last', 'low_mean_last', 'low_std_last',
+        #  'high_mean', 'high_std', 'low_mean', 'low_std'}
+        dic[symbol] = [results['high_mean_last'] + results['high_std_last'], 
+                       results['low_mean_last'] - results['low_std_last']]
+        msg += f"Symbol: {symbol}, Predicted High Mean: {results['high_mean_last']:.6f}, High Std: {results['high_std_last']:.6f}, \n" \
+                      f"Predicted Low Mean: {results['low_mean_last']:.6f}, Low Std: {results['low_std_last']:.6f}\n"
+        
+        msg_detail += f"Symbol: {symbol}, Predicted High Mean: {results['high_mean_last']:.6f}, High Std: {results['high_std_last']:.6f}, \n" \
+                      f"Predicted Low Mean: {results['low_mean_last']:.6f}, Low Std: {results['low_std_last']:.6f}\n" \
+                        f"Predicted High Mean (Current): {results['high_mean']:.6f}, High Std (Current): {results['high_std']:.6f}, \n" \
+                        f"Predicted Low Mean (Current): {results['low_mean']:.6f}, Low Std (Current): {results['low_std']:.6f}\n"
+
+    my_bot.text(msg_detail)
+    # report_bot.text(msg)
+
+    # Redis发布消息
+    # r = Redis(host=config['redisUrl'], db=1, password=config['redisPass'])
+    # signals_str = json.dumps(dic, cls=DecimalEncoder)        
+    # r.publish(f'kucoin_zero_fundingrate', signals_str)
+
+    return
+
 def print_prediction_summary(symbol: str, pred_sequence: np.ndarray, weights: Optional[np.ndarray] = None, update_type: str = "FULL"):
     """打印预测结果摘要"""
     print(f"\n{'='*70}")
@@ -829,6 +874,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 last_kline_compute_minute = current_minute
             
             # 3. 00/30分：执行完整预测
+            report_dict = {}
             if should_trigger_full_prediction(current_time) and current_minute != last_full_pred_minute:
                 print(f"\n{'*'*70}")
                 print(f"*  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发完整预测 (00/30分)  *")
@@ -854,6 +900,15 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                     
                     if pred_seq is not None:
                         result_dict[symbol] = pred_seq
+                        # Obtain high and low estimates for reporting
+                        report_dict[symbol] = {'high_mean_last': signal_generators[symbol].estimates_last[0],
+                                               'high_std_last': signal_generators[symbol].estimates_last[1],
+                                               'low_mean_last': signal_generators[symbol].estimates_last[2],
+                                               'low_std_last': signal_generators[symbol].estimates_last[3],
+                                               'high_mean': signal_generators[symbol].estimates[0],
+                                               'high_std': signal_generators[symbol].estimates[1],
+                                               'low_mean': signal_generators[symbol].estimates[2],
+                                               'low_std': signal_generators[symbol].estimates[3]}
                         print_prediction_summary(
                             symbol=symbol,
                             pred_sequence=pred_seq,
@@ -903,7 +958,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                     )
                     
                     updated_pred_seq = signal_generators[symbol].pred_sequences
-                    
+
                     if updated_pred_seq is not None and updated_pred_seq.shape[1] > 0:
                         next_step_pred = updated_pred_seq[:, 0, :]
                         
@@ -915,6 +970,16 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                         )
                         
                         estimates = signal_generators[symbol].estimates
+                        # Get high and low estimates for reporting
+                        report_dict[symbol] = {'high_mean_last': signal_generators[symbol].estimates_last[0],
+                                               'high_std_last': signal_generators[symbol].estimates_last[1],
+                                               'low_mean_last': signal_generators[symbol].estimates_last[2],
+                                               'low_std_last': signal_generators[symbol].estimates_last[3],
+                                               'high_mean': signal_generators[symbol].estimates[0],
+                                               'high_std': signal_generators[symbol].estimates[1],
+                                               'low_mean': signal_generators[symbol].estimates[2],
+                                               'low_std': signal_generators[symbol].estimates[3]}
+
                         if estimates:
                             print(f"  调整统计: High_mean={estimates[0]:.6f}, High_std={estimates[1]:.6f}, "
                                   f"Low_mean={estimates[2]:.6f}, Low_std={estimates[3]:.6f}")
@@ -923,6 +988,15 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 
                 last_reweight_minute = current_minute
             
+            if report_dict:
+                # 汇总报告
+                print(f"\n{'#'*70}")
+                print(f"#  预测摘要报告 | 时间: {current_time.strftime('%Y-%m-%d %H:%M:%S')}  #")
+                print(f"{'#'*70}")
+                print(f"{'Symbol':<10} {'High_Mean':<12} {'High_Std':<12} {'Low_Mean':<12} {'Low_Std':<12}")
+                print("-" * 70)
+                
+                report_to_feishu(report_dict)
             # 5. 精确的秒级睡眠
             next_second = (current_time.second + 1) % 60
             target_time = current_time.replace(second=next_second, microsecond=0)
