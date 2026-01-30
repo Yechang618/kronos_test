@@ -174,7 +174,7 @@ def load_and_enrich_market_data(base_input_dir: str, base_output_dir: str, targe
         if not future_trade.empty:
             future_trade["trade_type"] = "swap"
             trade_dfs.append(future_trade)
-
+        print(f"Target date: {target_date}, symbol: {symbol}, spot trades: {len(spot_trade)}, future trades: {len(future_trade)}")
         if trade_dfs:
             trades_merged = pd.concat(trade_dfs, ignore_index=True)
             trades_merged['time_str'] = parse_time_str(trades_merged['time_str'])
@@ -189,21 +189,14 @@ def load_and_enrich_market_data(base_input_dir: str, base_output_dir: str, targe
             print(f"  ⚠️ No trade data")
 
         time.sleep(0.1)
-
 # ----------------------------
-# Run
-# ----------------------------
-# if __name__ == "__main__":
-#     BASE_INPUT_DIR = "D:/market_data"
-#     BASE_OUTPUT_DIR = "./dataset/market_processed"
-#     TARGET_DATE = "20251228"
 
 #     load_and_enrich_market_data(BASE_INPUT_DIR, BASE_OUTPUT_DIR, TARGET_DATE)
 if __name__ == "__main__":
     BASE_INPUT_DIR = "D:/market_data"
     BASE_OUTPUT_DIR = "./dataset/market_processed"
 
-    start_date = datetime(2025, 12, 29)
+    start_date = datetime(2026, 1, 13)
     end_date = datetime(2026, 1, 21)
 
     current = start_date

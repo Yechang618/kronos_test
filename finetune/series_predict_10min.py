@@ -40,6 +40,7 @@ PREDICTOR_PATH = f"./outputs/models{MODEL_NOTE}/finetune_predictor_all/checkpoin
 # PREDICTOR_PATH_1 = "./outputs/models_144p48/finetune_predictor_all/checkpoints/best_model"
 
 TASK = "task5"
+TEMPERATURE = 1000
 
 symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
@@ -48,13 +49,13 @@ symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "THE", "TON", "TRX", "TURBO",  # 30
            "UNI", "XLM", "XRP", "ZEC", # 34
            ] # 
-SYMBOL = symbols[26]
+SYMBOL = symbols[10]
 START_TIME = "2025-10-02 07:50:00"
 # LOOKBACK_WINDOW = 144
-PRED_HORIZON = 10
+PRED_HORIZON = 5
 # PRED_LENGTH = 12
-N_SAMPLES = 30
-note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_samples{N_SAMPLES}_10min_fdr{MODEL_NOTE}"
+N_SAMPLES = 100
+note = f"{SYMBOL}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_Temp{TEMPERATURE}_samples{N_SAMPLES}_10min_fdr{MODEL_NOTE}"
 OUTPUT_DIR = Path(f"figures/series_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
@@ -95,7 +96,7 @@ class KronosPredictor:
         self.device = device
         self.max_context = max_context
 
-    def predict(self, x, x_stamp, y_stamp, pred_len=1, T=1.0, top_p=0.9, top_k=0):
+    def predict(self, x, x_stamp, y_stamp, pred_len=1, T=TEMPERATURE, top_p=0.9, top_k=0):
     # def predict(self, x, x_stamp, y_stamp, ...):
         self.tokenizer = self.tokenizer.to(self.device)
         self.model = self.model.to(self.device)
@@ -227,7 +228,7 @@ def main():
     # print(f"🎯 Target:  {y_time[0]} → {y_time[-1]}")
 
     # 存储所有预测 (30, 20, 6)
-    all_forecasts = np.full((PRED_HORIZON, PRED_LENGTH, N_SAMPLES, len(feature_list)), np.nan)
+    all_forecasts = np.full((PRED_HORIZON, PRED_LENGTH, N_SAMPLES, len(feature_list)), np.nan) # Example: (5, 48, 30, 6)
     # 逐步预测
     for i in range(PRED_HORIZON):
         context_end = x_end + i*PRED_LENGTH
@@ -243,6 +244,7 @@ def main():
         x_input_norm = np.clip(x_input_norm, -5.0, 5.0)
 
         preds = []
+        weights = np.ones(N_SAMPLES) / N_SAMPLES
         trends = []
         for _ in range(N_SAMPLES):
             pred = predictor.predict(
@@ -263,11 +265,34 @@ def main():
             preds.append(pred)  # 反归一化
         preds = np.stack(preds, axis=0)  # (N_SAMPLES, PRED_LENGTH, 6)
         preds = np.transpose(preds, (1, 0, 2))  # (PRED_LENGTH, N_SAMPLES, 6)
+        # all_forcasts shape: (PRED_HORIZON, PRED_LENGTH, N_SAMPLES, 6)
         all_forecasts[i] = np.array(preds)
 
     # 计算统计量
+    pred_mean_weighted = np.zeros((PRED_HORIZON, PRED_LENGTH, len(feature_list)))
+    pred_std_weighted = np.zeros((PRED_HORIZON, PRED_LENGTH, len(feature_list)))
     pred_mean = all_forecasts.mean(axis=2)  # (PRED_HORIZON, PRED_LENGTH, 6)
     pred_std = all_forecasts.std(axis=2)    # (PRED_HORIZON, PRED_LENGTH, 6)
+    SIGMA = 1e-4
+    for i in range(PRED_HORIZON):
+        context_end = x_end + i*PRED_LENGTH
+        y_true_df = df.iloc[context_end:context_end + PRED_LENGTH][feature_list]
+        true_y_values = y_true_df.values  # (PRED_LENGTH, 6)
+        weights = np.ones(N_SAMPLES) / N_SAMPLES
+        for t in range(PRED_LENGTH):
+            logweights = np.zeros((N_SAMPLES, len(feature_list))) 
+            for f in range(len(feature_list)):
+                vals = all_forecasts[i, t, :, f]
+                pred_mean_weighted[i, t, f] = np.sum(vals * weights)
+                pred_std_weighted[i, t, f] = np.sqrt(np.sum(weights * (vals - pred_mean_weighted[i, t, f])**2))
+                logweights[:, f] = -0.5 * ((true_y_values[t, f] - vals) / SIGMA)**2
+                # print(f"Step {i+1}, Time {t+1}, Feature {feature_list[f]}, True: {true_y_values[t, f]:.4f}, Pred - true: {(true_y_values[t, f] - vals)}, Pred Std: {pred_std_weighted[i, t, f]:.4f}")
+            # 综合所有特征的权重
+            weights = np.exp(logweights.sum(axis=1) - np.max(logweights.sum(axis=1)))
+            weights /= np.sum(weights)  # 归一化
+            print(f"Step {i+1}, max weight: {weights.max():.4f}, min weight: {weights.min():.4f}")
+        
+            
 
     # 完整时间轴：x + y
     full_time = df.index[x_start:x_end + PRED_HORIZON]
@@ -282,7 +307,7 @@ def main():
         y_time = df.index[context_end:context_end + PRED_LENGTH]
         true_y_values = y_true_df.values  # (PRED_LENGTH, 6)
 
-        fig1, axes1 = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
+        fig1, axes1 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
         # (0) Close
         ax = axes1[0]
         ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Basis')
@@ -293,12 +318,7 @@ def main():
             pred_mean[i, :, 3] + pred_std[i, :, 3],
             color='lightcoral', alpha=0.4, label='±1 std'
         )
-        # ax.set_ylabel('Close')
-        # ax.legend()
-        # ax.grid(True, linestyle=':', alpha=0.7)
 
-        # # (1) High and Low
-        # ax = axes1[1]
         # High
         ax.plot(y_time, true_y_values[:, 1], color='purple', linewidth=1.5, label='True High')
         ax.plot(y_time, pred_mean[i,:, 1], 'o-', color='green', linewidth=2, label='Predicted High Mean')
@@ -321,8 +341,40 @@ def main():
         ax.legend()
         ax.grid(True, linestyle=':', alpha=0.7)
 
-        # (2) Volume and Amount
         ax = axes1[1]
+        ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Basis')
+        ax.plot(y_time, pred_mean_weighted[i,:, 3], 'o-', color='red', linewidth=2, label='Predicted Basis Mean')
+        ax.fill_between(
+            y_time,
+            pred_mean_weighted[i, :, 3] - pred_std_weighted[i, :, 3],
+            pred_mean_weighted[i, :, 3] + pred_std_weighted[i, :, 3],
+            color='lightcoral', alpha=0.4, label='±1 std'
+        )
+
+        # High
+        ax.plot(y_time, true_y_values[:, 1], color='purple', linewidth=1.5, label='True High')
+        ax.plot(y_time, pred_mean_weighted[i,:, 1], 'o-', color='green', linewidth=2, label='Predicted High Mean')
+        ax.fill_between(
+            y_time,
+            pred_mean_weighted[i, :, 1] - pred_std_weighted[i, :, 1],
+            pred_mean_weighted[i, :, 1] + pred_std_weighted[i, :, 1],
+            color='lightgreen', alpha=0.3
+        )
+        # Low
+        ax.plot(y_time, true_y_values[:, 2], color='darkgoldenrod', linewidth=1.5, label='True Low')
+        ax.plot(y_time, pred_mean_weighted[i,:, 2], 'o-', color='blue', linewidth=2, label='Predicted Low Mean')
+        ax.fill_between(
+            y_time,
+            pred_mean_weighted[i, :, 2] - pred_std_weighted[i, :, 2],
+            pred_mean_weighted[i, :, 2] + pred_std_weighted[i, :, 2],
+            color='lightblue', alpha=0.3
+        )
+        ax.set_ylabel('Weighted Basis, Bid High, Ask Low')
+        ax.legend()
+        ax.grid(True, linestyle=':', alpha=0.7)
+
+        # (2) Volume and Amount
+        ax = axes1[2]
         if TASK == "task5":
             label_volume = 'Funding Rate'
             label_amount = 'Log(Spot/Index)'
@@ -349,13 +401,52 @@ def main():
             pred_mean[i, :, 5] + pred_std[i, :, 5],
             color='lightblue', alpha=0.3
         )
-        ax.set_ylabel('Orderbook Balance')
+        ax.set_ylabel('Funding Rate / Log(Spot/Index)')
         ax.set_xlabel('Time')
         ax.legend()
         ax.grid(True, linestyle=':', alpha=0.7)
         plt.xticks(rotation=45)
 
         fig1.suptitle(f'{SYMBOL} - Price and Volume Prediction (N={N_SAMPLES})')
+        fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_price_volume.png", dpi=150)
+        plt.close(fig1)
+
+        # (4) Volume and Amount
+        ax = axes1[3]
+        if TASK == "task5":
+            label_volume = 'Funding Rate'
+            label_amount = 'Log(Spot/Index)'
+        else:
+            label_volume = 'True Swap Log(Bid/Ask)'
+            label_amount = 'True Spot Log(Bid/Ask)'
+        # Volume
+
+        ax.plot(y_time, pred_mean_weighted[i,:, 4], 'o-', color='red', linewidth=2, label='Predicted Mean')
+        ax.plot(y_time, true_y_values[:, 4], color='purple', linewidth=1.5, label=label_volume)
+        ax.fill_between(
+            y_time,
+            pred_mean_weighted[i, :, 4] - pred_std_weighted[i, :, 4],
+            pred_mean_weighted[i, :, 4] + pred_std_weighted[i, :, 4],
+            color='lightcoral', alpha=0.3
+        )
+        # Amount
+
+        ax.plot(y_time, pred_mean_weighted[i,:, 5], 'o-', color='blue', linewidth=2, label='Predicted Mean')
+        ax.plot(y_time, true_y_values[:, 5], color='cyan', linewidth=1.5, label=label_amount)        
+        ax.fill_between(
+            y_time,
+            pred_mean_weighted[i, :, 5] - pred_std_weighted[i, :, 5],
+            pred_mean_weighted[i, :, 5] + pred_std_weighted[i, :, 5],
+            color='lightblue', alpha=0.3
+        )
+        ax.set_ylabel('Funding Rate / Log Price')
+        ax.set_xlabel('Time')
+        ax.legend()
+        ax.grid(True, linestyle=':', alpha=0.7)
+        plt.xticks(rotation=45)
+
+        fig1.suptitle(f'{SYMBOL} - WeightedPrice and Volume Prediction (N={N_SAMPLES})')
         fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
         fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_price_volume.png", dpi=150)
         plt.close(fig1)

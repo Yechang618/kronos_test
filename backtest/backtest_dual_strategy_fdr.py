@@ -93,7 +93,8 @@ class DualStrategyBacktest100ms:
         
         self.pred_sequences = None
         self.pred_weights = None
-        self.sigma = 1.0  # 观测噪声标准差
+        self.sigma = 1e-4  # 观测噪声标准差
+        self.temperature = 100
 
         self.predictor = None
         self.tokenizer = None
@@ -374,7 +375,7 @@ class DualStrategyBacktest100ms:
                 x_stamp=x_stamp,
                 y_stamp=y_stamp,  # ← 现在是 float32
                 pred_len=PRED_LENGTH,
-                T=0.6,
+                T=self.temperature,
                 top_p=0.9,
                 top_k=0
             )
