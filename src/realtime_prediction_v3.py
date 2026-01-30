@@ -800,7 +800,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
             predictor=predictors['shared'],
             lookback=144,
             pred_length=6,
-            n_samples=100
+            n_samples=30
         )
     
     # 等待到下一分钟整点开始

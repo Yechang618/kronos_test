@@ -129,7 +129,7 @@ class DynamicSignalGenerator:
                  predictor: KronosPredictor,
                  lookback=144,      # 24小时10分钟K线
                  pred_length=48,    # 预测8小时
-                 n_samples=100):
+                 n_samples=20):
         '''初始化DynamicSignalGenerator实例
         Inputs:
         - predictor: KronosPredictor实例
