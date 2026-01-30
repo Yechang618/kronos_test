@@ -147,7 +147,7 @@ class DynamicSignalGenerator:
         self.pred_sequences = None
         self.estimates = []
         self.pred_weights = None
-        self.sigma = 1.0  # 观测噪声标准差
+        self.sigma = 1e-4  # 观测噪声标准差
 
     def resample_to_10min(self, df_100ms):
         """将100ms数据重采样为10分钟K线，使用正确的volume和amount定义"""
