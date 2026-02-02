@@ -35,10 +35,7 @@ for i in range(len(symbols)):
     # 检查必要列是否存在
 
     print(df_all.info())
-    # missing = [c for c in required_cols if c not in df_all.columns]
-    # if missing:
-    #     raise KeyError(f"Missing required columns: {missing}")
-
+    
     # # 生成 Kronos OHLCV 字段
     df_kronos = pd.DataFrame(index=df_all.index)
     df_kronos["open"] = df_all["Open"]

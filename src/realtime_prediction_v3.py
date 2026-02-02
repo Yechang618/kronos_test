@@ -533,7 +533,7 @@ class RealtimeKlineManager:
         """获取最新K线的observations"""
         df = self.get_kline_df(symbol)
         if df is not None and not df.empty:
-            return [df[['open', 'high', 'low', 'close', 'volume', 'amount']].iloc[-1]]
+            return df[['open', 'high', 'low', 'close', 'volume', 'amount']].iloc[-1].values
         return None
     
     def save_klines_to_disk(self) -> None:

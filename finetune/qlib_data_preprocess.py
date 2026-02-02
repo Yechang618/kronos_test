@@ -4,16 +4,64 @@ import pickle
 import pandas as pd
 from config import Config
 
-TASK_NAME = "task6"
+TASK_NAME = "task7"
 
 def main():
-    symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
-            "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
-            "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
-            "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
-            "THE", "TON", "TRX", "TURBO",  # 30
-            "UNI", "XLM", "XRP", "ZEC", # 34
-            ] # 
+    # symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
+    #         "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
+    #         "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
+    #         "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
+    #         "THE", "TON", "TRX", "TURBO",  # 30
+    #         "UNI", "XLM", "XRP", "ZEC", # 34
+    #         ] # 
+    # full_symbols = ['1000CATUSDT', '1000CHEEMSUSDT', '1000SATSUSDT', '1MBABYDOGEUSDT', 
+    #            'AAVEUSDT', 'ACHUSDT', 'ADAUSDT', 'AIUSDT', 'AIXBTUSDT', 'ALGOUSDT', 
+    #            'ALICEUSDT', 'ALPINEUSDT', 'ALTUSDT', 'APEUSDT', 'API3USDT', 'APTUSDT', 
+    #            'ARBUSDT', 'ARKMUSDT', 'ARKUSDT', 'ASTRUSDT', 'ATOMUSDT', 'AUCTIONUSDT', 
+    #            'AUSDT', 'AVAXUSDT', 'AXLUSDT', 
+    #            'BANANAUSDT', 'BANDUSDT', 'BBUSDT', 'BCHUSDT', 'BIOUSDT', 'BMTUSDT', 
+    #            'CAKEUSDT', 'CELOUSDT', 'CETUSUSDT', 'CFXUSDT', 'CHESSUSDT', 'CHZUSDT', 'CKBUSDT', 'COMPUSDT', 'COTIUSDT', 'CRVUSDT', 'CUSDT', 
+    #            'DEXEUSDT', 'DIAUSDT', 'DOGEUSDT', 'DOTUSDT', 'DUSKUSDT', 'DYDXUSDT', 
+    #            'EGLDUSDT', 'EIGENUSDT', 'ENAUSDT', 'ENJUSDT', 'ENSUSDT', 'EPICUSDT', 'ETCUSDT', 'ETHFIUSDT', 'ETHUSDT', 
+    #            'FETUSDT', 'FLUXUSDT', 'FORMUSDT', 'FXSUSDT', 
+    #            'GASUSDT', 'GLMUSDT', 'GMXUSDT', 'GPSUSDT', 
+    #            'HAEDALUSDT', 'HBARUSDT', 'HIVEUSDT', 'HUMAUSDT', 
+    #            'ICPUSDT', 'IDUSDT', 'ILVUSDT', 'INJUSDT', 'IOUSDT', 
+    #            'JASMYUSDT', 'JTOUSDT', 'JUPUSDT', 'KAITOUSDT', 'KAVAUSDT', 'KSMUSDT', 
+    #            'LAYERUSDT', 'LDOUSDT', 'LINKUSDT', 'LPTUSDT', 'LQTYUSDT', 'LTCUSDT', 
+    #            'MASKUSDT', 'MAVUSDT', 'MOVRUSDT', 'NEARUSDT', 'NEIROUSDT', 'NEOUSDT', 'NXPCUSDT', 
+    #            'OGUSDT', 'OMUSDT', 'ONDOUSDT', 'OPUSDT', 'ORDIUSDT', 
+    #            'PENDLEUSDT', 'PENGUUSDT', 'PEOPLEUSDT', 'PHAUSDT', 'PNUTUSDT', 'POLUSDT', 'POLYXUSDT', 'PROMUSDT', 'PROVEUSDT', 'PYTHUSDT', 
+    #            'QNTUSDT', 'QTUMUSDT', 'RAREUSDT', 'REDUSDT', 'RENDERUSDT', 'RESOLVUSDT', 'RONINUSDT', 'RSRUSDT', 
+    #            'SAGAUSDT', 'SANDUSDT', 'SANTOSUSDT', 'SCRTUSDT', 'SCRUSDT', 'SFPUSDT', 'SOLUSDT', 'SOLVUSDT', 'SPELLUSDT', 
+    #            'SUIUSDT', 'SUPERUSDT', 'SUSDT', 'SYRUPUSDT', 'SYSUSDT', 
+    #            'TAOUSDT', 'THETAUSDT', 'TIAUSDT', 'TONUSDT', 'TRBUSDT', 'TRUMPUSDT', 'TRXUSDT', 'TSTUSDT', 'TURBOUSDT', 'TWTUSDT', 
+    #            'UNIUSDT', 'VANAUSDT', 'VETUSDT', 'VIRTUALUSDT', 'WIFUSDT', 'WLDUSDT', 'XLMUSDT', 'XRPUSDT', 'XVGUSDT', 
+    #            'YFIUSDT', 'ZECUSDT', 'ZENUSDT', 'ZKUSDT', 'ZROUSDT']
+    symbols = ['1000CAT', '1000CHEEMS', '1000SATS', '1MBABYDOGE', 
+                'AAVE', 'ACH', 'ADA', 'AI', 'AIXBT', 'ALGO', 
+                'ALICE', 'ALPINE', 'ALT', 'APE', 'API3', 'APT', 
+                'ARB', 'ARKM', 'ARK', 'ASTR', 'ATOM', 'AUCTION', 
+                'A', 'AVAX', 'AXL', 
+                'BANANA', 'BAND', 'BB', 'BCH', 'BIO', 'BMT', 
+                'CAKE', 'CELO', 'CETUS', 'CFX', 'CHESS', 'CHZ', 'CKB', 'COMP', 'COTI', 'CRV', 'C', 
+                'DEXE', 'DIA', 'DOGE', 'DOT', 'DUSK', 'DYDX', 
+                'EGLD', 'EIGEN', 'ENA', 'ENJ', 'ENS', 'EPIC', 'ETC', 'ETHFI', 'ETH', 
+                'FET', 'FLUX', 'FORM', 'FXS', 
+                'GAS', 'GLM', 'GMX', 'GPS', 
+                'HAEDAL', 'HBAR', 'HIVE', 'HUMA', 
+                'ICP', 'ID', 'ILV', 'INJ', 'IO', 
+                'JASMY', 'JTO', 'JUP', 'KAITO', 'KAVA', 'KSM', 
+                'LAYER', 'LDO', 'LINK', 'LPT', 'LQTY', 'LTC', 
+                'MASK', 'MAV', 'MOVR', 'NEAR', 'NEIRO', 'NEO', 'NXPC', 
+                'OG', 'OM', 'ONDO', 'OP', 'ORDI', 
+                'PENDLE', 'PENGU', 'PEOPLE', 'PHA', 'PNUT', 'POL', 'POLYX', 'PROM', 'PROVE', 'PYTH', 
+                'QNT', 'QTUM', 'RARE', 'RED', 'RENDER', 'RESOLV', 'RONIN', 'RSR', 
+                'SAGA', 'SAND', 'SANTOS', 'SCRT', 'SCR', 'SFP', 'SOL', 'SOLV', 'SPELL', 
+                'SUI', 'SUPER', 'S', 'SYRUP', 'SYS', 
+                'TAO', 'THETA', 'TIA', 'TON', 'TRB', 'TRUMP', 'TRX', 'TST', 'TURBO', 'TWT', 
+                'UNI', 'VANA', 'VET', 'VIRTUAL', 'WIF', 'WLD', 'XLM', 'XRP', 'XVG', 
+                'YFI', 'ZEC', 'ZEN', 'ZK', 'ZRO']
     # config = Config()
     train_val_start = "2025-01-01"
     train_val_end = "2025-09-30"
