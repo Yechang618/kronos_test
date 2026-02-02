@@ -396,7 +396,7 @@ class DynamicSignalGenerator:
         """
         基于最新观测价格对预测序列重加权，更新动态阈值
         self.pred_sequences: (N_SAMPLES, pred_length, feature_dim)
-        observations: (pred_length,feature_dim)
+        observations: (feature_dim,)
         """
         if self.pred_sequences is None or self.pred_sequences.shape[1] == 0:
             return self.current_params
@@ -411,7 +411,7 @@ class DynamicSignalGenerator:
         logweights = np.zeros((N_SAMPLES, len(feature_list))) 
         for f in range(len(feature_list)):
             vals = self.pred_sequences[:, 0, f]
-            logweights[:, f] = -0.5 * ((observations[0, f] - vals) / self.sigma)**2
+            logweights[:, f] = -0.5 * ((observations[f] - vals) / self.sigma)**2
         # 综合所有特征的权重
         unnormalized = np.exp(logweights.sum(axis=1) - np.max(logweights.sum(axis=1)))
         weight_sum = np.sum(unnormalized)

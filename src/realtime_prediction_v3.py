@@ -528,6 +528,13 @@ class RealtimeKlineManager:
         if df is not None and not df.empty:
             return df['close'].iloc[-1]
         return None
+
+    def get_latest_observations(self, symbol: str) -> Optional[float]:
+        """获取最新K线的observations"""
+        df = self.get_kline_df(symbol)
+        if df is not None and not df.empty:
+            return [df[['open', 'high', 'low', 'close', 'volume', 'amount']].iloc[-1]]
+        return None
     
     def save_klines_to_disk(self) -> None:
         """将所有symbol的K线数据保存到本地JSON文件"""
@@ -948,14 +955,19 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                         continue
                     
                     latest_close = kline_manager.get_latest_close(symbol)
+                    latest_observations = kline_manager.get_latest_observations(symbol)
                     if latest_close is None:
                         print(f"[SKIP] {symbol}: 无最新K线数据，跳过重加权")
                         continue
                     
-                    params = signal_generators[symbol].update_signal_with_observation(
-                        observed_price=latest_close,
+                    # params = signal_generators[symbol].update_signal_with_observation(
+                    #     observed_price=latest_close,
+                    #     timestamp=current_time
+                    # )
+                    params = signal_generators[symbol].update_signal_with_full_observations(
+                        observed_price=latest_observations,
                         timestamp=current_time
-                    )
+                    )                    
                     
                     updated_pred_seq = signal_generators[symbol].pred_sequences
 
