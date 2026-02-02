@@ -389,6 +389,73 @@ class DynamicSignalGenerator:
             ]
         
         return self.current_params.copy()
+    
+    def update_signal_with_full_observations(self, 
+                                      observations: float,
+                                      timestamp: pd.Timestamp) -> list:
+        """
+        基于最新观测价格对预测序列重加权，更新动态阈值
+        self.pred_sequences: (N_SAMPLES, pred_length, feature_dim)
+        observations: (pred_length,feature_dim)
+        """
+        if self.pred_sequences is None or self.pred_sequences.shape[1] == 0:
+            return self.current_params
+        feature_list = ['open', 'high', 'low', 'close', 'volume', 'amount']
+        # 1. 重加权
+        # prior = self.pred_sequences[:, 0, 3]  # 预测的Close[3]; Open[0], High[1], Low[2], Close[3], Volume[4], Amount[5]
+        # residuals = observations - prior
+        # likelihoods = np.exp(-0.5 * (residuals / self.sigma) ** 2) / (np.sqrt(2 * np.pi) * self.sigma)
+        # unnormalized = self.pred_weights * likelihoods
+        # weight_sum = np.sum(unnormalized)
+        
+        logweights = np.zeros((N_SAMPLES, len(feature_list))) 
+        for f in range(len(feature_list)):
+            vals = self.pred_sequences[:, 0, f]
+            logweights[:, f] = -0.5 * ((observations[0, f] - vals) / self.sigma)**2
+        # 综合所有特征的权重
+        unnormalized = np.exp(logweights.sum(axis=1) - np.max(logweights.sum(axis=1)))
+        weight_sum = np.sum(unnormalized)
+
+        if weight_sum > 0:
+            self.pred_weights = unnormalized / weight_sum
+        else:
+            self.pred_weights = np.ones_like(self.pred_weights) / len(self.pred_weights)
+        
+        # 2. 移除已观测时间步
+        self.pred_sequences = self.pred_sequences[:, 1:, :]
+        
+        # 3. 重新计算阈值
+        high = DescrStatsW(self.pred_sequences[:, 0, 1], weights=self.pred_weights)
+        low = DescrStatsW(self.pred_sequences[:, 0, 2], weights=self.pred_weights)
+        high_estimate = high.mean + high.std
+        low_estimate = low.mean - low.std
+
+        self.estimates = [high.mean, high.std, low.mean, low.std]
+
+        # 3.1. 重新计算长期阈值
+        high_last = DescrStatsW(self.pred_sequences[:, -1, 1], weights=self.pred_weights)
+        low_last = DescrStatsW(self.pred_sequences[:, -1, 2], weights=self.pred_weights)
+        high_estimate = high_last.mean + high_last.std
+        low_estimate = low_last.mean - low_last.std
+
+        self.estimates_last = [high_last.mean, high_last.std, low_last.mean, low_last.std]
+
+        
+        if self.current_params:
+            c_tt_high, c_tt_low, c_mt_high, c_mt_low, c_tm_high, c_tm_low = self.current_params
+            d = self._calculate_adjustment(
+                high_estimate, low_estimate, 
+                c_mt_high, c_mt_low,
+                (high_estimate + low_estimate) / 2, 
+                (high_estimate + low_estimate) / 2
+            )
+            self.current_params = [
+                c_tt_high + d, c_tt_low + d,
+                c_mt_high + d, c_mt_low + d,
+                c_tm_high + d, c_tm_low + d
+            ]
+        
+        return self.current_params.copy()
 
     def _calculate_adjustment(self, high_est, low_est, c_mt_high, c_mt_low, high_ref, low_ref):
         """计算阈值调整量"""

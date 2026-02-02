@@ -29,10 +29,10 @@ from model.kronos import sample_from_logits
 # MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_long", 144, 48 #Should be the same as _144p48
 # MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "", 144, 12
 ## Current best models
-MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_10min_144p48", 144, 48
+# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_10min_144p48", 144, 48
 # MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_1", 144, 48
 # MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_2", 144, 48
-# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_3", 144, 48
+MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_3", 144, 48
 
 TOKENIZER_PATH = f"./core/models/model{MODEL_NOTE}/finetune_tokenizer_all/checkpoints/best_model"
 PREDICTOR_PATH = f"./core/models/model{MODEL_NOTE}/finetune_predictor_all/checkpoints/best_model"
@@ -287,6 +287,7 @@ def main():
             logweights = np.zeros((N_SAMPLES, len(feature_list))) 
             for f in range(len(feature_list)):
                 vals = all_forecasts[i, t, :, f]
+                ## Recover mean and std before weight update
                 pred_mean_weighted[i, t, f] = np.sum(vals * weights)
                 pred_std_weighted[i, t, f] = np.sqrt(np.sum(weights * (vals - pred_mean_weighted[i, t, f])**2))
                 logweights[:, f] = -0.5 * ((true_y_values[t, f] - vals) / SIGMA)**2
@@ -294,6 +295,10 @@ def main():
             # 综合所有特征的权重
             weights = np.exp(logweights.sum(axis=1) - np.max(logweights.sum(axis=1)))
             weights /= np.sum(weights)  # 归一化
+            # for f in range(len(feature_list)):
+            #     vals = all_forecasts[i, t, :, f]
+            #     pred_mean_weighted[i, t, f] = np.sum(vals * weights)
+            #     pred_std_weighted[i, t, f] = np.sqrt(np.sum(weights * (vals - pred_mean_weighted[i, t, f])**2))
             print(f"Step {i+1}, max weight: {weights.max():.4f}, min weight: {weights.min():.4f}")
         
             

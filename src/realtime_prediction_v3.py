@@ -996,7 +996,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 print(f"{'Symbol':<10} {'High_Mean':<12} {'High_Std':<12} {'Low_Mean':<12} {'Low_Std':<12}")
                 print("-" * 70)
                 
-                report_to_feishu(report_dict)
+                # report_to_feishu(report_dict)
             # 5. 精确的秒级睡眠
             next_second = (current_time.second + 1) % 60
             target_time = current_time.replace(second=next_second, microsecond=0)
