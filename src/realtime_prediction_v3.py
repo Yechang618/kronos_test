@@ -965,7 +965,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                     #     timestamp=current_time
                     # )
                     params = signal_generators[symbol].update_signal_with_full_observations(
-                        observed_price=latest_observations,
+                        observations=latest_observations,
                         timestamp=current_time
                     )                    
                     
