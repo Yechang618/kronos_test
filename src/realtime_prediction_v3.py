@@ -38,9 +38,9 @@ import yaml
 from util import DecimalEncoder
 import message_bot as mb
 
-# config_path = "./config/config.yaml"
-# with open(config_path, 'r', encoding='utf-8') as f:
-#     config = yaml.safe_load(f)
+config_path = "./core/config.yaml"
+with open(config_path, 'r', encoding='utf-8') as f:
+    redis_config = yaml.safe_load(f)
 
 # 配置参数
 CONFIG = Config()
@@ -677,9 +677,9 @@ def report_to_feishu(report_dict: Dict) -> None:
     report_bot.text(msg)
 
     # Redis发布消息
-    # r = Redis(host=config['redisUrl'], db=1, password=config['redisPass'])
-    # signals_str = json.dumps(dic, cls=DecimalEncoder)        
-    # r.publish(f'kucoin_zero_fundingrate', signals_str)
+    r = Redis(host=redis_config['redisUrl'], db=1, password=redis_config['redisPass'])
+    signals_str = json.dumps(dic, cls=DecimalEncoder)        
+    r.publish(f'kc_maxmin_estimate', signals_str)
 
     return
 
