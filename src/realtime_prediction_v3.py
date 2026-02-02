@@ -48,7 +48,7 @@ MAX_ROWS = 144
 PRED_LENGTH = 6
 MIN_KLINES_FOR_PREDICTION = 1
 KLINE_SAVE_DIR = Path("./datasets/temp")
-N_SAMPLES = 50
+N_SAMPLES = CONFIG.n_samples
 TEMPERATURE = 100
 class BaseDataFetcher(ABC):
     """数据采集器抽象基类"""

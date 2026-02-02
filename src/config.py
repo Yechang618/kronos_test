@@ -20,7 +20,7 @@ class Config:
         # Parameters
         self.lookback = 144
         self.pred_length = 48
-        self.n_samples = 30
+        self.n_samples = 50
 
         # 模型路径
         self.pretrained_tokenizer_path = "core/pretrained/tokenizer/best_model"
