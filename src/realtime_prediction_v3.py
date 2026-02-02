@@ -48,7 +48,8 @@ MAX_ROWS = 144
 PRED_LENGTH = 6
 MIN_KLINES_FOR_PREDICTION = 1
 KLINE_SAVE_DIR = Path("./datasets/temp")
-
+N_SAMPLES = 50
+TEMPERATURE = 100
 class BaseDataFetcher(ABC):
     """数据采集器抽象基类"""
     
@@ -798,7 +799,8 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
             predictor=predictors['shared'],
             lookback=144,
             pred_length=6,
-            n_samples=30
+            n_samples=N_SAMPLES,
+            temperature=TEMPERATURE
         )
     
     # 等待到下一分钟整点开始

@@ -11,8 +11,11 @@ class Config:
 
         # 路径
         self.dataset_path = "./datasets/temp"
-        self.tokenizer_10min = f"./core/models/model_10min_144p48/finetune_tokenizer_all/checkpoints/best_model"
-        self.predictor_10min = f"./core/models/model_10min_144p48/finetune_predictor_all/checkpoints/best_model"
+        # self.tokenizer_10min = f"./core/models/model_10min_144p48/finetune_tokenizer_all/checkpoints/best_model"
+        # self.predictor_10min = f"./core/models/model_10min_144p48/finetune_predictor_all/checkpoints/best_model"
+        self.tokenizer_10min = f"./core/models/model_1min_3/finetune_tokenizer_all/checkpoints/best_model"
+        self.predictor_10min = f"./core/models/model_1min_3/finetune_predictor_all/checkpoints/best_model"
+
 
         # Parameters
         self.lookback = 144

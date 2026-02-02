@@ -129,7 +129,8 @@ class DynamicSignalGenerator:
                  predictor: KronosPredictor,
                  lookback=144,      # 24小时10分钟K线
                  pred_length=48,    # 预测8小时
-                 n_samples=20):
+                 n_samples=20,
+                 temperature = 1.0):
         '''初始化DynamicSignalGenerator实例
         Inputs:
         - predictor: KronosPredictor实例
@@ -148,6 +149,7 @@ class DynamicSignalGenerator:
         self.estimates = []
         self.pred_weights = None
         self.sigma = 1e-4  # 观测噪声标准差
+        self.temperature = temperature
 
     def resample_to_10min(self, df_100ms):
         """将100ms数据重采样为10分钟K线，使用正确的volume和amount定义"""
@@ -272,13 +274,13 @@ class DynamicSignalGenerator:
         # 4. 多样本预测
         preds = []
         pred_sequences = []
-        for _ in range(self.n_samples):
+        for n in range(self.n_samples):
             pred = self.predictor.predict(
                 x=x_norm,
                 x_stamp=x_stamp,
                 y_stamp=y_stamp,
                 pred_len=self.pred_length,
-                T=0.6,
+                T=self.temperature/(n+1)**0.5,
                 top_p=0.9,
                 top_k=0
             )
@@ -344,6 +346,8 @@ class DynamicSignalGenerator:
         likelihoods = np.exp(-0.5 * (residuals / self.sigma) ** 2) / (np.sqrt(2 * np.pi) * self.sigma)
         unnormalized = self.pred_weights * likelihoods
         weight_sum = np.sum(unnormalized)
+        
+
         
         if weight_sum > 0:
             self.pred_weights = unnormalized / weight_sum
