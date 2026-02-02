@@ -956,6 +956,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                     
                     latest_close = kline_manager.get_latest_close(symbol)
                     latest_observations = kline_manager.get_latest_observations(symbol)
+                    print(f"Last obsetvations for {symbol}: {latest_observations}")
                     if latest_close is None:
                         print(f"[SKIP] {symbol}: 无最新K线数据，跳过重加权")
                         continue
