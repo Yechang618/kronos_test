@@ -43,13 +43,13 @@ def main():
                 'ALICE', 'ALPINE', 'ALT', 'APE', 'API3', 'APT', 
                 'ARB', 'ARKM', 'ARK', 'ASTR', 'ATOM', 'AUCTION', 
                 'A', 'AVAX', 'AXL', 
-                'BANANA', 'BAND', 'BB', 'BCH', 'BIO', 'BMT', 
+                'BANANA', 'BAND', 'BB', 'BCH', 'BIO', 'BMT', "BNB", "BTC", 
                 'CAKE', 'CELO', 'CETUS', 'CFX', 'CHESS', 'CHZ', 'CKB', 'COMP', 'COTI', 'CRV', 'C', 
                 'DEXE', 'DIA', 'DOGE', 'DOT', 'DUSK', 'DYDX', 
                 'EGLD', 'EIGEN', 'ENA', 'ENJ', 'ENS', 'EPIC', 'ETC', 'ETHFI', 'ETH', 
                 'FET', 'FLUX', 'FORM', 'FXS', 
                 'GAS', 'GLM', 'GMX', 'GPS', 
-                'HAEDAL', 'HBAR', 'HIVE', 'HUMA', 
+                'HAEDAL', 'HBAR', 'HIVE', 'HUMA',  "HFT",
                 'ICP', 'ID', 'ILV', 'INJ', 'IO', 
                 'JASMY', 'JTO', 'JUP', 'KAITO', 'KAVA', 'KSM', 
                 'LAYER', 'LDO', 'LINK', 'LPT', 'LQTY', 'LTC', 
@@ -59,14 +59,14 @@ def main():
                 'QNT', 'QTUM', 'RARE', 'RED', 'RENDER', 'RESOLV', 'RONIN', 'RSR', 
                 'SAGA', 'SAND', 'SANTOS', 'SCRT', 'SCR', 'SFP', 'SOL', 'SOLV', 'SPELL', 
                 'SUI', 'SUPER', 'S', 'SYRUP', 'SYS', 
-                'TAO', 'THETA', 'TIA', 'TON', 'TRB', 'TRUMP', 'TRX', 'TST', 'TURBO', 'TWT', 
+                'TAO', 'THETA', 'TIA', 'TON', 'TRB', 'TRUMP', 'TRX', 'TST', 'TURBO', 'TWT',  "THE",
                 'UNI', 'VANA', 'VET', 'VIRTUAL', 'WIF', 'WLD', 'XLM', 'XRP', 'XVG', 
                 'YFI', 'ZEC', 'ZEN', 'ZK', 'ZRO']
     # config = Config()
     train_val_start = "2025-01-01"
-    train_val_end = "2025-09-30"
-    test_start = "2025-10-01"
-    test_end = "2025-10-29"
+    train_val_end = "2026-01-20"
+    test_start = "2026-01-21"
+    test_end = "2026-01-21"
 
     combined_train, combined_val = {}, {}
 

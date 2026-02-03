@@ -40,7 +40,6 @@ print(f"Found symbols: {symbols}")
 # ----------------------------
 # Processing Function
 # ----------------------------
-
 def process_symbol(symbol: str):
     print(f"\n📊 Processing symbol: {symbol}")
     all_dfs = []
@@ -52,12 +51,24 @@ def process_symbol(symbol: str):
             continue
 
         try:
-            df = pd.read_csv(book_file, compression='gzip')
+            # ✅ Fix 1: Specify dtypes to avoid mixed-type warning
+            df = pd.read_csv(
+                book_file,
+                compression='gzip',
+                dtype={
+                    'spot_bid1_px': 'float64',
+                    'spot_ask1_px': 'float64',
+                    'swap_bid1_px': 'float64',
+                    'swap_ask1_px': 'float64',
+                    'funding_rate': 'float64',
+                    'index_price': 'float64'
+                },
+                low_memory=False
+            )
         except Exception as e:
             print(f"  ❌ Failed to read {book_file}: {e}")
             continue
 
-        # Keep only required columns
         required_cols = [
             'time_str',
             'spot_bid1_px', 'spot_ask1_px',
@@ -69,11 +80,15 @@ def process_symbol(symbol: str):
             print(f"  ⚠️ Missing columns in {book_file}: {missing}")
             continue
 
-        # df = df[required_cols].copy()
-        # df['timestamp'] = pd.to_datetime(df['time_str'], utc=True)
         df = df[required_cols].copy()
-        # ✅ Fix: Use ISO8601 format to handle variable precision
-        df['timestamp'] = pd.to_datetime(df['time_str'], format='ISO8601')
+
+        # ✅ Fix 2: Use ISO8601 to parse time_str safely
+        try:
+            df['timestamp'] = pd.to_datetime(df['time_str'], format='ISO8601')
+        except Exception as e:
+            print(f"  ⚠️ Time parse error in {book_file}: {e}")
+            continue
+
         df.drop(columns=['time_str'], inplace=True)
 
         # Drop rows with critical NaN
@@ -86,7 +101,7 @@ def process_symbol(symbol: str):
         if df.empty:
             continue
 
-        # Compute WAP and basis
+        # Compute indicators
         df['wap_bid1_px'] = (df['swap_bid1_px'] + df['swap_ask1_px']) / 2
         df['basis_bid'] = np.log(df['wap_bid1_px']) - np.log(df['spot_ask1_px'])
         df['basis_ask'] = np.log(df['swap_ask1_px']) - np.log(df['spot_bid1_px'])
@@ -102,25 +117,16 @@ def process_symbol(symbol: str):
     full_df = pd.concat(all_dfs, ignore_index=True)
     full_df = full_df.sort_values('timestamp').set_index('timestamp')
 
-    # Resample to 1-minute bars
+    # ✅ Fix 3: Use '1min' instead of '1T'
     def agg_func(group):
         if group.empty:
-            return pd.Series({
-                'open': np.nan,
-                'high': np.nan,
-                'low': np.nan,
-                'close': np.nan,
-                'volume': np.nan,
-                'amount': np.nan
-            })
-
+            return pd.Series({k: np.nan for k in ['open', 'high', 'low', 'close', 'volume', 'amount']})
         open_val = group['mid_basis'].iloc[0]
         close_val = group['mid_basis'].iloc[-1]
         high_val = group['basis_bid'].max()
         low_val = group['basis_ask'].min()
         volume_val = group['funding_rate'].dropna().iloc[-1] if not group['funding_rate'].dropna().empty else np.nan
         amount_val = group['amount'].iloc[-1]
-
         return pd.Series({
             'open': open_val,
             'high': high_val,
@@ -130,7 +136,7 @@ def process_symbol(symbol: str):
             'amount': amount_val
         })
 
-    ohlcv = full_df.groupby(pd.Grouper(freq='1T')).apply(agg_func)
+    ohlcv = full_df.groupby(pd.Grouper(freq='1min')).apply(agg_func)
     ohlcv = ohlcv.dropna(subset=['open', 'high', 'low', 'close'], how='all')
     ohlcv.index.name = 'timestampes'
 
@@ -138,8 +144,18 @@ def process_symbol(symbol: str):
         print(f"  ⚠️ No OHLCV generated for {symbol}")
         return
 
-    # Save by year-month
+    # Reset index for saving
     ohlcv_reset = ohlcv.reset_index()
+
+    # ✅ Fix 4: Remove NaT before formatting
+    ohlcv_reset = ohlcv_reset.dropna(subset=['timestampes'])
+    if ohlcv_reset.empty:
+        print(f"  ⚠️ All timestamps are NaT for {symbol}")
+        return
+
+    # Group by year-month
+    # ✅ Avoid timezone-aware period conversion warning
+    ohlcv_reset['timestampes'] = ohlcv_reset['timestampes'].dt.tz_localize(None)  # Remove timezone for period
     ohlcv_reset['year_month'] = ohlcv_reset['timestampes'].dt.to_period('M')
 
     for period, group in ohlcv_reset.groupby('year_month'):
@@ -148,7 +164,12 @@ def process_symbol(symbol: str):
         filename = f"{symbol}_basis_1min_{year}-{month}.csv.gz"
         output_file = OUTPUT_DIR / filename
 
-        # Append if file exists, else write
+        # Format timestampes as "4/1/2025 12:00:00 AM" (no leading zeros)
+        group = group.copy()
+        group['timestampes'] = group['timestampes'].apply(
+            lambda x: f"{x.month}/{x.day}/{x.year} {x.strftime('%I:%M:%S %p')}"
+        )
+
         if output_file.exists():
             existing = pd.read_csv(output_file, compression='gzip')
             combined = pd.concat([existing, group.drop(columns=['year_month'])], ignore_index=True)
