@@ -22,12 +22,12 @@ class Config:
         self.seed = 42
         self.batch_size = 10
         self.log_interval = 100
-        self.epochs = 100
+        self.epochs = 50
         self.n_train_iter = 50000 * self.batch_size
-        self.n_val_iter = 4000 * self.batch_size
+        self.n_val_iter = 120000 * self.batch_size
 
-        self.tokenizer_learning_rate = 5e-4
-        self.predictor_learning_rate = 1e-7
+        self.tokenizer_learning_rate = 1e-3
+        self.predictor_learning_rate = 1e-4
         self.adam_beta1 = 0.9
         self.adam_beta2 = 0.95
         self.adam_weight_decay = 0.1
