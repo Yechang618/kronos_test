@@ -54,7 +54,7 @@ TEMPERATURE = 100
 # 高频采集专用配置
 COLLECTION_INTERVAL_SEC = 1  # 每秒采集1次
 BUFFER_MAX_POINTS = 720  # 12分钟缓冲区（10分钟窗口+2分钟安全边际）
-LOG_AGGREGATION_INTERVAL = 10  # 每10秒聚合输出1次日志
+LOG_AGGREGATION_INTERVAL = 30  # 每30秒聚合输出1次日志
 
 class BaseDataFetcher(ABC):
     """数据采集器抽象基类"""
@@ -901,18 +901,49 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
         time.sleep(0.01)  # 毫秒级精度等待
     
     last_data_collect_second = -1
-    last_kline_compute_minute = -1
+    # last_kline_compute_minute = -1
     last_full_pred_minute = -1
     last_reweight_minute = -1
-    
+    # kline_scheduler = KlineScheduler()
+
     print(f"\n[SYSTEM] 开始实时数据采集与预测循环 ({exchange_name}) | 采集频率: 1次/秒 ...\n")
     
+    # ===== 在主循环初始化处 =====
+    last_kline_trigger_time = None  # 记录上次成功触发的UTC时间（非分钟值）
+
     while True:
         try:
             current_time = datetime.now(timezone.utc)
             current_minute = current_time.minute
             current_second = current_time.second
-            
+
+            # 【修复核心】使用绝对时间窗口判断，而非状态变量比较
+            should_compute = False
+            window_start = window_end = None
+
+            if current_minute % 10 == 0 and current_second < 3:  # 放宽到秒0-2内均可触发
+                # 计算目标窗口（上一个10分钟）
+                target_window_start = current_time.replace(
+                    minute=(current_minute // 10) * 10,
+                    second=0,
+                    microsecond=0
+                ) - timedelta(minutes=10)
+                
+                # 关键修复：检查是否已触发过该窗口
+                if (last_kline_trigger_time is None or 
+                    target_window_start > last_kline_trigger_time):
+                    should_compute = True
+                    window_start = target_window_start
+                    window_end = target_window_start + timedelta(minutes=10) - timedelta(microseconds=1)
+                    
+            if current_second == 0 and current_time.microsecond < 100000:
+                print(f"[DIAG] {current_time.strftime('%H:%M:%S.%f')[:-3]} | "
+                    f"min={current_minute} mod10={current_minute%10} sec={current_second} "
+                    f"μs={current_time.microsecond:06d} | "
+                    f"should_trigger={current_minute%10==0 and current_second==0 and current_time.microsecond<100000}")
+            if current_second == 0:
+                print(f"[DIAG] Time={current_time.strftime('%H:%M:%S.%f')[:-3]} | "
+                    f"last_trigger={last_kline_trigger_time.strftime('%H:%M') if last_kline_trigger_time else 'None'}")
             # 1. 每秒整点采集原始数据（高频采集核心改动）
             if should_collect_data(current_time) and current_second != last_data_collect_second:
                 # 交错采集：分散请求避免突发流量
@@ -944,13 +975,18 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 last_data_collect_second = current_second
             
             # 2. 每10分钟整点计算K线（逻辑不变）
-            if should_compute_kline(current_time) and current_minute != last_kline_compute_minute:
-                window_start, window_end = get_previous_window_bounds(current_time)
+            # if should_compute_kline(current_time) and current_minute != last_kline_compute_minute:
+            #     window_start, window_end = get_previous_window_bounds(current_time)
+            #     print(f"\n{'#'*70}")
+            #     print(f"#  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 计算10分钟K线窗口: "
+            #           f"{window_start.strftime('%H:%M:%S')} - {window_end.strftime('%H:%M:%S')}  #")
+            #     print(f"{'#'*70}\n")
+            if should_compute:
                 print(f"\n{'#'*70}")
-                print(f"#  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 计算10分钟K线窗口: "
-                      f"{window_start.strftime('%H:%M:%S')} - {window_end.strftime('%H:%M:%S')}  #")
+                print(f"#  [{current_time.strftime('%Y-%m-%d %H:%M:%S.%f')[:23]}] 计算10分钟K线 #")
+                print(f"#  窗口: {window_start.strftime('%H:%M:%S')} - {window_end.strftime('%H:%M:%S.%f')[:-3]}  #")
                 print(f"{'#'*70}\n")
-                
+
                 computed_symbols = []
                 for symbol in CONFIG.symbol_list:
                     kline = kline_manager.compute_kline_from_buffer(symbol, window_start, window_end)
@@ -959,8 +995,9 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                             computed_symbols.append(symbol)
                 
                 if computed_symbols:
-                    print(f"\n[SAVE] 本次计算 {len(computed_symbols)} 个币种的K线，正在保存...")
                     kline_manager.save_klines_to_disk()
+                    last_kline_trigger_time = window_start  # ✅ 更新为窗口开始时间（非当前时间）
+                    print(f"[SUCCESS] 成功计算 {len(computed_symbols)} 个币种的K线")
                 else:
                     print(f"[INFO] 本次无有效K线可计算")
                 
@@ -968,7 +1005,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
             
             # 3. 00/30分：执行完整预测（逻辑不变）
             report_dict = {}
-            if should_trigger_full_prediction(current_time) and current_minute != last_full_pred_minute:
+            if current_minute in (0, 30) and current_second == 0 and last_full_pred_minute != current_minute:
                 print(f"\n{'*'*70}")
                 print(f"*  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发完整预测 (00/30分)  *")
                 print(f"{'*'*70}\n")
@@ -1029,7 +1066,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 last_full_pred_minute = current_minute
             
             # 4. 10/20/40/50分：执行重加权更新（逻辑不变）
-            elif should_trigger_reweight_update(current_time) and current_minute != last_reweight_minute:
+            elif current_minute in (10, 20, 40, 50) and current_second == 0 and last_reweight_minute != current_minute:
                 print(f"\n{'~'*70}")
                 print(f"~  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发重加权更新 (10/20/40/50分)  ~")
                 print(f"{'~'*70}\n")
