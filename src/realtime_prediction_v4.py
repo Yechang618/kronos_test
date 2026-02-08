@@ -799,7 +799,7 @@ def report_to_feishu(report_dict: Dict) -> None:
     # for symbol in dic_trans.keys():
     #     for k in dic_trans[symbol]:
     #         print(f"  {symbol}.{k}: {type(k)} = {k}")
-    
+
     r = Redis(host=redis_config['redisUrl'], db=1, password=redis_config['redisPass'])
     signals_str = json.dumps(dic_trans, cls=DecimalEncoder)
     r.publish(f'kc_maxmin_estimate', signals_str)
@@ -812,10 +812,11 @@ def print_prediction_summary(symbol: str, pred_sequence: np.ndarray, weights: Op
     print(f"{'='*70}")
     
     if pred_sequence.ndim == 2:
-        pred_sequence = pred_sequence[np.newaxis, :, :]
+        pred_sequence = pred_sequence[:, np.newaxis, :]
     
-    n_samples = pred_sequence.shape[1]
-    print(f"样本数量: {n_samples}")
+    n_samples = pred_sequence.shape[0]
+    print(f"预测序列形状: {pred_sequence.shape} (样本数量: {n_samples}, 时间步长: {pred_sequence.shape[2]})")
+    # print(f"样本数量: {n_samples}")
     
     if weights is not None:
         print(f"权重统计: 均值={np.mean(weights):.4f}, 标准差={np.std(weights):.4f}, "
@@ -826,7 +827,7 @@ def print_prediction_summary(symbol: str, pred_sequence: np.ndarray, weights: Op
     print("-" * 70)
     
     for i in range(6):
-        close_prices = pred_sequence[:, i, 3]
+        close_prices = pred_sequence[i, :, 3]
         mean = np.mean(close_prices)
         std = np.std(close_prices)
         p5 = np.percentile(close_prices, 5)
@@ -835,7 +836,7 @@ def print_prediction_summary(symbol: str, pred_sequence: np.ndarray, weights: Op
     
     print(f"\n样本#0完整序列 (O,H,L,C,V,A):")
     for i in range(6):
-        point = pred_sequence[0, i]
+        point = pred_sequence[i, 0, :]
         print(f"  T+{10*(i+1)}min: [{point[0]:.6f}, {point[1]:.6f}, {point[2]:.6f}, "
               f"{point[3]:.6f}, {point[4]:.6f}, {point[5]:.6f}]")
 
@@ -1037,8 +1038,8 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
             
             # 3. 00/30分：执行完整预测（逻辑不变）
             report_dict = {}
-            if current_minute in (0, 30) and current_second <= 10 and last_full_pred_minute != current_minute:
-            # if current_minute in (0, 5, 15, 25, 30, 35, 45, 55) and current_second <= 10 and last_full_pred_minute != current_minute:
+            if current_minute in (0, 30) and  last_full_pred_minute != current_minute:
+            # if current_minute in (0, 8, 15, 25, 30, 35, 45, 55) and last_full_pred_minute != current_minute:
                 print(f"\n{'*'*70}")
                 print(f"*  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发完整预测 (00/30分)  *")
                 print(f"{'*'*70}\n")
@@ -1099,7 +1100,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 last_full_pred_minute = current_minute
             
             # 4. 10/20/40/50分：执行重加权更新（逻辑不变）
-            elif current_minute in (10, 20, 40, 50) and current_second <= 10 and last_reweight_minute != current_minute:
+            elif current_minute in (10, 20, 40, 50)  and last_reweight_minute != current_minute:
                 print(f"\n{'~'*70}")
                 print(f"~  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发重加权更新 (10/20/40/50分)  ~")
                 print(f"{'~'*70}\n")
