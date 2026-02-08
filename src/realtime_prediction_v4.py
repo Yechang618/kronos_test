@@ -740,6 +740,27 @@ def get_previous_window_bounds(current_time: datetime) -> Tuple[datetime, dateti
     return prev_window_start, prev_window_end
 
 def report_to_feishu(report_dict: Dict) -> None:
+
+    def sanitize_for_json(obj):
+        """递归转换NumPy类型为Python原生类型"""
+        if isinstance(obj, dict):
+            return {k: sanitize_for_json(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [sanitize_for_json(x) for x in obj]
+        elif isinstance(obj, (np.floating, np.float16, np.float32, np.float64)):
+            return float(obj)
+        elif isinstance(obj, (np.integer, np.int8, np.int16, np.int32, np.int64)):
+            return int(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return obj
+    # 在report_to_feishu开头添加
+    print(f"[DEBUG] report_dict types:")
+    for symbol, vals in report_dict.items():
+        for k, v in vals.items():
+            print(f"  {symbol}.{k}: {type(v)} = {v}")
+
     """通过飞书机器人发送报告"""
     if not CONFIG.my_url:
         print("[WARN] 未配置飞书Webhook URL，跳过发送报告")
@@ -767,11 +788,20 @@ def report_to_feishu(report_dict: Dict) -> None:
     
     my_bot.text(msg_detail)
     report_bot.text(msg)
+
     
-    # Redis发布消息
+    # # Redis发布消息
+    dic_trans = sanitize_for_json(dic)
+    print(f"[DEBUG] 准备发布到Redis: {dic_trans}")
+    # 在report_to_feishu开头添加
+    print(f"[DEBUG] translated report_dict types:")
+    for symbol in dic_trans.keys():
+        for k in dic_trans[symbol]:
+            print(f"  {symbol}.{k}: {type(k)} = {k}")
     r = Redis(host=redis_config['redisUrl'], db=1, password=redis_config['redisPass'])
-    signals_str = json.dumps(dic, cls=DecimalEncoder)
+    signals_str = json.dumps(sanitize_for_json(dic), cls=DecimalEncoder)
     r.publish(f'kc_maxmin_estimate', signals_str)
+    # r.publish(f'kc_maxmin_estimate_test', signals_str)
 
 def print_prediction_summary(symbol: str, pred_sequence: np.ndarray, weights: Optional[np.ndarray] = None, update_type: str = "FULL"):
     """打印预测结果摘要"""
@@ -1001,11 +1031,12 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 else:
                     print(f"[INFO] 本次无有效K线可计算")
                 
-                last_kline_compute_minute = current_minute
+                # last_kline_compute_minute = current_minute
             
             # 3. 00/30分：执行完整预测（逻辑不变）
             report_dict = {}
             if current_minute in (0, 30) and current_second == 0 and last_full_pred_minute != current_minute:
+            # if current_minute in (0, 5, 15, 25, 30, 45, 47, 55) and current_second <= 10 and last_full_pred_minute != current_minute:
                 print(f"\n{'*'*70}")
                 print(f"*  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发完整预测 (00/30分)  *")
                 print(f"{'*'*70}\n")
@@ -1066,7 +1097,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
                 last_full_pred_minute = current_minute
             
             # 4. 10/20/40/50分：执行重加权更新（逻辑不变）
-            elif current_minute in (10, 20, 40, 50) and current_second == 0 and last_reweight_minute != current_minute:
+            elif current_minute in (10, 20, 40, 50) and current_second <= 10 and last_reweight_minute != current_minute:
                 print(f"\n{'~'*70}")
                 print(f"~  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发重加权更新 (10/20/40/50分)  ~")
                 print(f"{'~'*70}\n")
