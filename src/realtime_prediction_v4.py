@@ -793,13 +793,15 @@ def report_to_feishu(report_dict: Dict) -> None:
     # # Redis发布消息
     dic_trans = sanitize_for_json(dic)
     print(f"[DEBUG] 准备发布到Redis: {dic_trans}")
+
     # 在report_to_feishu开头添加
-    print(f"[DEBUG] translated report_dict types:")
-    for symbol in dic_trans.keys():
-        for k in dic_trans[symbol]:
-            print(f"  {symbol}.{k}: {type(k)} = {k}")
+    # print(f"[DEBUG] translated report_dict types:")
+    # for symbol in dic_trans.keys():
+    #     for k in dic_trans[symbol]:
+    #         print(f"  {symbol}.{k}: {type(k)} = {k}")
+    
     r = Redis(host=redis_config['redisUrl'], db=1, password=redis_config['redisPass'])
-    signals_str = json.dumps(sanitize_for_json(dic), cls=DecimalEncoder)
+    signals_str = json.dumps(dic_trans, cls=DecimalEncoder)
     r.publish(f'kc_maxmin_estimate', signals_str)
     # r.publish(f'kc_maxmin_estimate_test', signals_str)
 
@@ -812,7 +814,7 @@ def print_prediction_summary(symbol: str, pred_sequence: np.ndarray, weights: Op
     if pred_sequence.ndim == 2:
         pred_sequence = pred_sequence[np.newaxis, :, :]
     
-    n_samples = pred_sequence.shape[0]
+    n_samples = pred_sequence.shape[1]
     print(f"样本数量: {n_samples}")
     
     if weights is not None:
@@ -951,7 +953,7 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
             should_compute = False
             window_start = window_end = None
 
-            if current_minute % 10 == 0 and current_second < 3:  # 放宽到秒0-2内均可触发
+            if current_minute % 10 == 0 and current_second < 5:  # 放宽到秒0-2内均可触发
                 # 计算目标窗口（上一个10分钟）
                 target_window_start = current_time.replace(
                     minute=(current_minute // 10) * 10,
@@ -1035,8 +1037,8 @@ def main(test_mode: bool = False, use_kucoin: bool = False):
             
             # 3. 00/30分：执行完整预测（逻辑不变）
             report_dict = {}
-            if current_minute in (0, 30) and current_second == 0 and last_full_pred_minute != current_minute:
-            # if current_minute in (0, 5, 15, 25, 30, 45, 47, 55) and current_second <= 10 and last_full_pred_minute != current_minute:
+            if current_minute in (0, 30) and current_second <= 10 and last_full_pred_minute != current_minute:
+            # if current_minute in (0, 5, 15, 25, 30, 35, 45, 55) and current_second <= 10 and last_full_pred_minute != current_minute:
                 print(f"\n{'*'*70}")
                 print(f"*  [{current_time.strftime('%Y-%m-%d %H:%M:%S')}] 触发完整预测 (00/30分)  *")
                 print(f"{'*'*70}\n")

@@ -148,7 +148,7 @@ class DynamicSignalGenerator:
         self.pred_sequences = None
         self.estimates = []
         self.pred_weights = None
-        self.sigma = 1e-4  # 观测噪声标准差
+        self.sigma = 1e-3  # 观测噪声标准差
         self.temperature = temperature
 
     def resample_to_10min(self, df_100ms):
