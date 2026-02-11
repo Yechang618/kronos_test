@@ -102,13 +102,15 @@ def process_trades_df(df, prefix):
     full_sec = pd.date_range(start=f"{day} 00:00:00", end=f"{day} 23:59:59", freq='1s')
     return df_wide.reindex(full_sec)
 
-for i in range(32, len(symbols)):
+for i in range(0, len(symbols)):
     symbol = symbols[i]
     quote = "USDT"
     pair = f"{symbol}{quote}"
 
-    start_date = "2025-01-01"
-    end_date = "2025-10-29"
+    # start_date = "2025-01-01"
+    # end_date = "2025-10-29"
+    start_date = "2025-10-21"
+    end_date = "2025-10-23"
     date_range = pd.date_range(start=start_date, end=end_date, freq="D")
     print(f"🚀 Processing {pair} from {start_date} to {end_date}")
 

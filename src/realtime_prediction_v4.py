@@ -802,7 +802,8 @@ def report_to_feishu(report_dict: Dict) -> None:
 
     r = Redis(host=redis_config['redisUrl'], db=1, password=redis_config['redisPass'])
     signals_str = json.dumps(dic_trans, cls=DecimalEncoder)
-    r.publish(f'kc_maxmin_estimate', signals_str)
+    # r.publish(f'kc_maxmin_estimate', signals_str)
+    r.setex('kc_maxmin_estimate', 600, signals_str)
     # r.publish(f'kc_maxmin_estimate_test', signals_str)
 
 def print_prediction_summary(symbol: str, pred_sequence: np.ndarray, weights: Optional[np.ndarray] = None, update_type: str = "FULL"):
