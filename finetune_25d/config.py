@@ -26,9 +26,9 @@ class Config:
         self.dataset_path = "./datasets/custom_25d/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 240
+        self.lookback_window = 480
         self.predict_window = 60
-        self.max_context = 512
+        self.max_context = 2048
         self.clip = 5.0
 
         # 训练参数
@@ -36,15 +36,18 @@ class Config:
         self.batch_size = 10
         self.log_interval = 100
         self.epochs = 50
+        self.n_train_iter = 50000 * self.batch_size
+        self.n_val_iter = 120000 * self.batch_size
 
         self.tokenizer_learning_rate = 1e-3
         self.predictor_learning_rate = 1e-4
         self.adam_beta1 = 0.9
         self.adam_beta2 = 0.95
         self.adam_weight_decay = 0.1
+        self.accumulation_steps = 1
 
         # 模型路径
-        self.pretrained_tokenizer_path = None  # 不使用预训练 tokenizer
+        self.pretrained_tokenizer_path = "./core/models/model_25d_1min/custom_25d_tokenizer/best_model"  # 不使用预训练 tokenizer
         self.pretrained_predictor_path = "./core/pretrained/basemodel/best_model"  # Kronos-mini
 
         self.save_path = "./core/models/model_25d_1min"

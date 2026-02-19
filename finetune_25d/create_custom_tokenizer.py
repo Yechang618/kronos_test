@@ -1,6 +1,13 @@
 # ./finetune_25d/create_custom_tokenizer.py
-import os
+import os, sys
 import torch
+
+
+# Add project root to path
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
 from model.kronos import KronosTokenizer
 from config import Config
 
@@ -11,7 +18,7 @@ def main():
 
     # 25维输入
     d_in = len(config.feature_list)  # 应为 25
-    assert d_in == 25, f"Expected 25 features, got {d_in}"
+    assert d_in == 56, f"Expected 56 features, got {d_in}"
 
     # 初始化与 Kronos-mini 兼容的 tokenizer 结构
     tokenizer = KronosTokenizer(
@@ -34,7 +41,7 @@ def main():
     )
 
     tokenizer.save_pretrained(save_dir)
-    print(f"[INFO] Custom 25D tokenizer saved to {save_dir}")
+    print(f"[INFO] Custom 56D tokenizer saved to {save_dir}")
 
 if __name__ == "__main__":
     main()
