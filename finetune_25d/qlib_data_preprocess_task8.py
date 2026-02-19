@@ -12,7 +12,7 @@ def main():
             "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
             "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
             "THE", "TON", "TRX", "TURBO",  # 30
-            "UNI", "XLM", "XRP", "ZEC", # 34
+            "UNI"#, "XLM", "XRP", "ZEC", # 34
             ] # 
     # symbols = ['1000CAT', '1000CHEEMS', '1000SATS', '1MBABYDOGE', 
     #             'AAVE', 'ACH', 'ADA', 'AI', 'AIXBT', 'ALGO', 
@@ -43,6 +43,10 @@ def main():
     train_val_end = "2025-09-30"
     test_start = "2025-10-01"
     test_end = "2025-10-29"
+    # train_val_start = "2025-04-01"
+    # train_val_end = "2025-04-30"
+    # test_start = "2025-05-01"
+    # test_end = "2025-05-29"
 
     combined_train, combined_val = {}, {}
 
