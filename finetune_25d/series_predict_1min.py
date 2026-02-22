@@ -23,67 +23,76 @@ from model.kronos import sample_from_logits
 # ==============================
 # 配置
 # ==============================
-# TOKENIZER_PATH = "./outputs/models_10min/finetune_tokenizer_all/checkpoints/best_model"
-# PREDICTOR_PATH = "./outputs/models_10min/finetune_predictor_all/checkpoints/best_model"
+# feature_list = ['basis_bid', 'basis_ask', 'basis_high', 'basis_low', 'funding_rate', 
+#                         'index_price', 'spot_index_imbalance', 'mark_price', 
+#                         'spot_buy_price', 'spot_sell_price', 'spot_buy_amount', 'spot_sell_amount', 
+#                         'swap_buy_price', 'swap_sell_price', 'swap_buy_amount', 'swap_sell_amount',
+#                         'spot_bid0_price', 'spot_bid0_amount', 'spot_bid1_price', 'spot_bid1_amount', 
+#                         'spot_bid2_price', 'spot_bid2_amount', 'spot_bid3_price', 'spot_bid3_amount', 
+#                         'spot_bid4_price', 'spot_bid4_amount', 
+#                         'spot_ask0_price', 'spot_ask0_amount', 'spot_ask1_price', 'spot_ask1_amount',
+#                         'spot_ask2_price', 'spot_ask2_amount', 'spot_ask3_price', 'spot_ask3_amount',
+#                         'spot_ask4_price', 'spot_ask4_amount',
+#                         'swap_bid0_price', 'swap_bid0_amount', 'swap_bid1_price', 'swap_bid1_amount', 
+#                         'swap_bid2_price', 'swap_bid2_amount', 'swap_bid3_price', 'swap_bid3_amount', 
+#                         'swap_bid4_price', 'swap_bid4_amount', 
+#                         'swap_ask0_price', 'swap_ask0_amount','swap_ask1_price', 'swap_ask1_amount',
+#                         'swap_ask2_price', 'swap_ask2_amount','swap_ask3_price', 'swap_ask3_amount',
+#                         'swap_ask4_price', 'swap_ask4_amount']
+idx_high = 2
+idx_low = 3
 
 MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_25d_1min", 480, 60
 
 LOOKBACK_WINDOW, PRED_LENGTH = 480, 60
 
-TOKENIZER_PATH = f"./core/models/model{MODEL_NOTE}/finetune_tokenizer_all/checkpoints/best_model"
-PREDICTOR_PATH = f"./core/models/model{MODEL_NOTE}/finetune_predictor_all/checkpoints/best_model"
-
-# TOKENIZER_PATH_long = "./outputs/models_long/finetune_tokenizer_all/checkpoints/best_model"
-# PREDICTOR_PATH_long = "./outputs/models_long/finetune_predictor_all/checkpoints/best_model"
-
-# TOKENIZER_PATH_1 = "./outputs/models_144p48/finetune_tokenizer_all/checkpoints/best_model"
-# PREDICTOR_PATH_1 = "./outputs/models_144p48/finetune_predictor_all/checkpoints/best_model"
-
+TOKENIZER_PATH = f"./core/models/model{MODEL_NOTE}/custom_25d_tokenizer/checkpoints/best_model"
+PREDICTOR_PATH = f"./core/models/model{MODEL_NOTE}/custom_25d_predictor/checkpoints/best_model"
 
 TEMPERATURE = 100
 ###################### Task 6: 1min 480p60 ######################
-# TASK = "task6"
-# symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
-#            "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
-#            "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
-#            "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
-#            "THE", "TON", "TRX", "TURBO",  # 30
-#            "UNI", "XLM", "XRP", "ZEC", # 34
-#            ] # 
-# SYMBOL = symbols[26]
-# START_TIME = "2025-10-02 07:50:00"
+TASK = "task8"
+symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
+           "CHESS", "COMP", "DOGE", "DOT", "ENA", "ETC","ETH", # 13
+           "FET", "FORM", "HBAR", "HFT", "KAITO", "LINK", "LTC", # 20
+           "NEAR", "OM", "ONDO", "PNUT", "SOL", "TAO", # 26
+           "THE", "TON", "TRX", "TURBO",  # 30
+           "UNI", "XLM", "XRP", "ZEC", # 34
+           ] # 
+SYMBOL = symbols[30]
+START_TIME = "2025-10-02 07:50:00"
 
 ####################### Task 7: 1min 480p60 on all symbols ######################
-TASK = "task8"
-symbols = ['1000CAT', '1000CHEEMS', '1000SATS', '1MBABYDOGE', 
-            'AAVE', 'ACH', 'ADA', 'AI', 'AIXBT', 'ALGO', 
-            'ALICE', 'ALPINE', 'ALT', 'APE', 'API3', 'APT', 
-            'ARB', 'ARKM', 'ARK', 'ASTR', 'ATOM', 'AUCTION', 
-            'A', 'AVAX', 'AXL', 
-            'BANANA', 'BAND', 'BB', 'BCH', 'BIO', 'BMT', "BNB", "BTC", 
-            'CAKE', 'CELO', 'CETUS', 'CFX', 'CHESS', 'CHZ', 'CKB', 'COMP', 'COTI', 'CRV', 'C', 
-            'DEXE', 'DIA', 'DOGE', 'DOT', 'DUSK', 'DYDX', 
-            'EGLD', 'EIGEN', 'ENA', 'ENJ', 'ENS', 'EPIC', 'ETC', 'ETHFI', 'ETH', 
-            'FET', 'FLUX', 'FORM', 'FXS', 
-            'GAS', 'GLM', 'GMX', 'GPS', 
-            'HAEDAL', 'HBAR', 'HIVE', 'HUMA',  "HFT",
-            'ICP', 'ID', 'ILV', 'INJ', 'IO', 
-            'JASMY', 'JTO', 'JUP', 'KAITO', 'KAVA', 'KSM', 
-            'LAYER', 'LDO', 'LINK', 'LPT', 'LQTY', 'LTC', 
-            'MASK', 'MAV', 'MOVR', 'NEAR', 'NEIRO', 'NEO', 'NXPC', 
-            'OG', 'OM', 'ONDO', 'OP', 'ORDI', 
-            'PENDLE', 'PENGU', 'PEOPLE', 'PHA', 'PNUT', 'POL', 'POLYX', 'PROM', 'PROVE', 'PYTH', 
-            'QNT', 'QTUM', 'RARE', 'RED', 'RENDER', 'RESOLV', 'RONIN', 'RSR', 
-            'SAGA', 'SAND', 'SANTOS', 'SCRT', 'SCR', 'SFP', 'SOL', 'SOLV', 'SPELL', 
-            'SUI', 'SUPER', 'S', 'SYRUP', 'SYS', 
-            'TAO', 'THETA', 'TIA', 'TON', 'TRB', 'TRUMP', 'TRX', 'TST', 'TURBO', 'TWT',  "THE",
-            'UNI', 'VANA', 'VET', 'VIRTUAL', 'WIF', 'WLD', 'XLM', 'XRP', 'XVG', 
-            'YFI', 'ZEC', 'ZEN', 'ZK', 'ZRO']
+# TASK = "task8"
+# symbols = ['1000CAT', '1000CHEEMS', '1000SATS', '1MBABYDOGE', 
+#             'AAVE', 'ACH', 'ADA', 'AI', 'AIXBT', 'ALGO', 
+#             'ALICE', 'ALPINE', 'ALT', 'APE', 'API3', 'APT', 
+#             'ARB', 'ARKM', 'ARK', 'ASTR', 'ATOM', 'AUCTION', 
+#             'A', 'AVAX', 'AXL', 
+#             'BANANA', 'BAND', 'BB', 'BCH', 'BIO', 'BMT', "BNB", "BTC", 
+#             'CAKE', 'CELO', 'CETUS', 'CFX', 'CHESS', 'CHZ', 'CKB', 'COMP', 'COTI', 'CRV', 'C', 
+#             'DEXE', 'DIA', 'DOGE', 'DOT', 'DUSK', 'DYDX', 
+#             'EGLD', 'EIGEN', 'ENA', 'ENJ', 'ENS', 'EPIC', 'ETC', 'ETHFI', 'ETH', 
+#             'FET', 'FLUX', 'FORM', 'FXS', 
+#             'GAS', 'GLM', 'GMX', 'GPS', 
+#             'HAEDAL', 'HBAR', 'HIVE', 'HUMA',  "HFT",
+#             'ICP', 'ID', 'ILV', 'INJ', 'IO', 
+#             'JASMY', 'JTO', 'JUP', 'KAITO', 'KAVA', 'KSM', 
+#             'LAYER', 'LDO', 'LINK', 'LPT', 'LQTY', 'LTC', 
+#             'MASK', 'MAV', 'MOVR', 'NEAR', 'NEIRO', 'NEO', 'NXPC', 
+#             'OG', 'OM', 'ONDO', 'OP', 'ORDI', 
+#             'PENDLE', 'PENGU', 'PEOPLE', 'PHA', 'PNUT', 'POL', 'POLYX', 'PROM', 'PROVE', 'PYTH', 
+#             'QNT', 'QTUM', 'RARE', 'RED', 'RENDER', 'RESOLV', 'RONIN', 'RSR', 
+#             'SAGA', 'SAND', 'SANTOS', 'SCRT', 'SCR', 'SFP', 'SOL', 'SOLV', 'SPELL', 
+#             'SUI', 'SUPER', 'S', 'SYRUP', 'SYS', 
+#             'TAO', 'THETA', 'TIA', 'TON', 'TRB', 'TRUMP', 'TRX', 'TST', 'TURBO', 'TWT',  "THE",
+#             'UNI', 'VANA', 'VET', 'VIRTUAL', 'WIF', 'WLD', 'XLM', 'XRP', 'XVG', 
+#             'YFI', 'ZEC', 'ZEN', 'ZK', 'ZRO']
 # SYMBOL = symbols[0]
-SYMBOL = 'SOLV'
-START_TIME = "2026-01-23 12:00:00"
+# SYMBOL = 'SOLV'
+# START_TIME = "2026-01-23 12:00:00"
 # LOOKBACK_WINDOW = 480
-PRED_HORIZON = 5
+PRED_HORIZON = 1
 SIGMA = 1e-4
 # PRED_LENGTH = 12
 N_SAMPLES = 100
@@ -99,7 +108,7 @@ def compute_trends(pred):
     计算趋势：1 表示上升，-1 表示下降，0 表示持平
     data: numpy array, shape (N,)
     """
-    assert pred.shape[1] == 6, "Input data must have 6 features"
+    assert pred.shape[1] == 56, "Input data must have 56 features"
     close = pred[:, 3]  # 使用收盘价计算趋势
 
     assert pred.shape[0] == PRED_LENGTH, "Input data must be PRED_LENGTH-dimensional"
@@ -326,10 +335,6 @@ def main():
             if np.sum(weights**2) > 0.5:  # 如果权重过于集中，增加平滑
                 weights = 0.5 * weights + 0.5 / N_SAMPLES
                 weights /= np.sum(weights)
-            # for f in range(len(feature_list)):
-            #     vals = all_forecasts[i, t, :, f]
-            #     pred_mean_weighted[i, t, f] = np.sum(vals * weights)
-            #     pred_std_weighted[i, t, f] = np.sqrt(np.sum(weights * (vals - pred_mean_weighted[i, t, f])**2))
             print(f"Step {i+1}, max weight: {weights.max():.4f}, min weight: {weights.min():.4f}")
         
             
@@ -339,110 +344,131 @@ def main():
     full_values = df.iloc[x_start:x_end + PRED_HORIZON][feature_list].values  # (270, 6)
     # true_y_values = y_true_df.values  # (30, 6)
 
-    feature_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'Amount']
-
+    # feature_names = ['Open', 'High', 'Low', 'Close', 'Volume', 'Amount']
+    feature_names = ['Basis Bid', 'Basis Ask', 'High Bid', 'Low Ask', 'funding rate',  # 0 - 4
+                        'index_price', 'spot_index_imbalance', 'mark_price',  # 5 - 7
+                        'spot_buy_price', 'spot_sell_price', 'spot_buy_amount', 'spot_sell_amount', # 8 - 11
+                        'swap_buy_price', 'swap_sell_price', 'swap_buy_amount', 'swap_sell_amount', # 12 - 15
+                        'spot_bid0_price', 'spot_bid0_amount', 'spot_bid1_price', 'spot_bid1_amount',  # 16 - 19
+                        'spot_bid2_price', 'spot_bid2_amount', 'spot_bid3_price', 'spot_bid3_amount',  # 20 - 23
+                        'spot_bid4_price', 'spot_bid4_amount',  # 24 - 25
+                        'spot_ask0_price', 'spot_ask0_amount', 'spot_ask1_price', 'spot_ask1_amount', # 26 - 29
+                        'spot_ask2_price', 'spot_ask2_amount', 'spot_ask3_price', 'spot_ask3_amount', #     30 - 33
+                        'spot_ask4_price', 'spot_ask4_amount', # 34 - 35
+                        'swap_bid0_price', 'swap_bid0_amount', 'swap_bid1_price', 'swap_bid1_amount',  # 36 - 39
+                        'swap_bid2_price', 'swap_bid2_amount', 'swap_bid3_price', 'swap_bid3_amount',  # 40 - 43
+                        'swap_bid4_price', 'swap_bid4_amount',  # 44 - 45
+                        'swap_ask0_price', 'swap_ask0_amount','swap_ask1_price', 'swap_ask1_amount', # 46 - 49
+                        'swap_ask2_price', 'swap_ask2_amount','swap_ask3_price', 'swap_ask3_amount', # 50 - 53
+                        'swap_ask4_price', 'swap_ask4_amount'] # 54 - 55
     for i in range(PRED_HORIZON):
         context_end = x_end + i*PRED_LENGTH
         y_true_df = df.iloc[context_end:context_end + PRED_LENGTH][feature_list]
         y_time = df.index[context_end:context_end + PRED_LENGTH]
         true_y_values = y_true_df.values  # (PRED_LENGTH, 6)
 
+        # Figure 1: High and Low with Weighted vs Unweighted Predictions
         fig1, axes1 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
-        # (0) Close
+
+        # (0) High and low
         ax = axes1[0]
-        ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Basis')
-        ax.plot(y_time, pred_mean[i,:, 3], 'o-', color='red', linewidth=2, label='Predicted Basis Mean')
-        ax.fill_between(
-            y_time,
-            pred_mean[i, :, 3] - pred_std[i, :, 3],
-            pred_mean[i, :, 3] + pred_std[i, :, 3],
-            color='lightcoral', alpha=0.4, label='±1 std'
-        )
-
+        idx1 = 2
+        idx2 = 3
+        label1 = f'True {feature_names[idx1]}'
+        label2 = f'True {feature_names[idx2]}'
         # High
-        ax.plot(y_time, true_y_values[:, 1], color='purple', linewidth=1.5, label='True High')
-        ax.plot(y_time, pred_mean[i,:, 1], 'o-', color='green', linewidth=2, label='Predicted High Mean')
+        ax.plot(y_time, true_y_values[:, idx1], color='purple', linewidth=1.5, label=label1)
+        ax.plot(y_time, pred_mean[i,:, idx1], 'o-', color='green', linewidth=2, label='Pred High')
         ax.fill_between(
             y_time,
-            pred_mean[i, :, 1] - pred_std[i, :, 1],
-            pred_mean[i, :, 1] + pred_std[i, :, 1],
+            pred_mean[i, :, idx1] - pred_std[i, :, idx1],
+            pred_mean[i, :, idx1] + pred_std[i, :, idx1],
             color='lightgreen', alpha=0.3
         )
         # Low
-        ax.plot(y_time, true_y_values[:, 2], color='darkgoldenrod', linewidth=1.5, label='True Low')
-        ax.plot(y_time, pred_mean[i,:, 2], 'o-', color='blue', linewidth=2, label='Predicted Low Mean')
+        ax.plot(y_time, true_y_values[:, idx2], color='darkgoldenrod', linewidth=1.5, label=label2)
+        ax.plot(y_time, pred_mean[i,:, idx2], 'o-', color='blue', linewidth=2, label='Pred Low')
         ax.fill_between(
             y_time,
-            pred_mean[i, :, 2] - pred_std[i, :, 2],
-            pred_mean[i, :, 2] + pred_std[i, :, 2],
+            pred_mean[i, :, idx2] - pred_std[i, :, idx2],
+            pred_mean[i, :, idx2] + pred_std[i, :, idx2],
             color='lightblue', alpha=0.3
         )
-        ax.set_ylabel('Basis, Bid High, Ask Low')
+        ax.set_ylabel(f'{feature_names[idx1]} and {feature_names[idx2]}')
         ax.legend()
         ax.grid(True, linestyle=':', alpha=0.7)
-
+        # (1) Weighted High and low
         ax = axes1[1]
-        ax.plot(y_time, true_y_values[:, 3], color='black', linewidth=1.5, label='True Basis')
-        ax.plot(y_time, pred_mean_weighted[i,:, 3], 'o-', color='red', linewidth=2, label='Predicted Basis Mean')
+        # Weighted High
+        ax.plot(y_time, true_y_values[:, idx1], color='purple', linewidth=1.5, label=label1)
+        ax.plot(y_time, pred_mean_weighted[i,:, idx1], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx1]} Weighted')
         ax.fill_between(
             y_time,
-            pred_mean_weighted[i, :, 3] - pred_std_weighted[i, :, 3],
-            pred_mean_weighted[i, :, 3] + pred_std_weighted[i, :, 3],
-            color='lightcoral', alpha=0.4, label='±1 std'
-        )
-
-        # High
-        ax.plot(y_time, true_y_values[:, 1], color='purple', linewidth=1.5, label='True High')
-        ax.plot(y_time, pred_mean_weighted[i,:, 1], 'o-', color='green', linewidth=2, label='Predicted High Mean')
-        ax.fill_between(
-            y_time,
-            pred_mean_weighted[i, :, 1] - pred_std_weighted[i, :, 1],
-            pred_mean_weighted[i, :, 1] + pred_std_weighted[i, :, 1],
+            pred_mean_weighted[i, :, idx1] - pred_std_weighted[i, :, idx1],
+            pred_mean_weighted[i, :, idx1] + pred_std_weighted[i, :, idx1],
             color='lightgreen', alpha=0.3
         )
-        # Low
-        ax.plot(y_time, true_y_values[:, 2], color='darkgoldenrod', linewidth=1.5, label='True Low')
-        ax.plot(y_time, pred_mean_weighted[i,:, 2], 'o-', color='blue', linewidth=2, label='Predicted Low Mean')
+        # Weighted Low
+        ax.plot(y_time, true_y_values[:, idx2], color='darkgoldenrod', linewidth=1.5, label=label2)
+        ax.plot(y_time, pred_mean_weighted[i,:, idx2], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx2]} Weighted')
         ax.fill_between(
             y_time,
-            pred_mean_weighted[i, :, 2] - pred_std_weighted[i, :, 2],
-            pred_mean_weighted[i, :, 2] + pred_std_weighted[i, :, 2],
+            pred_mean_weighted[i, :, idx2] - pred_std_weighted[i, :, idx2],
+            pred_mean_weighted[i, :, idx2] + pred_std_weighted[i, :, idx2],
             color='lightblue', alpha=0.3
         )
-        ax.set_ylabel('Weighted Basis, Bid High, Ask Low')
+        ax.set_ylabel(f'Weighted {feature_names[idx1]}, {feature_names[idx2]}')
         ax.legend()
         ax.grid(True, linestyle=':', alpha=0.7)
 
-        # (2) Volume and Amount
+        # (2) Funding rate and index_imbalance
         ax = axes1[2]
-        if TASK == "task5" or TASK == "task6":
-            label_volume = 'Funding Rate'
-            label_amount = 'Log(Spot/Index)'
-        else:
-            label_volume = 'True Swap Log(Bid/Ask)'
-            label_amount = 'True Spot Log(Bid/Ask)'
-        # Volume
-
-        ax.plot(y_time, pred_mean[i,:, 4], 'o-', color='red', linewidth=2, label='Predicted Mean')
-        ax.plot(y_time, true_y_values[:, 4], color='purple', linewidth=1.5, label=label_volume)
+        idx1 = 4
+        idx2 = 6
+        label1 = f'True {feature_names[idx1]}'
+        label2 = f'True {feature_names[idx2]}'
+        # Idx1
+        ax.plot(y_time, true_y_values[:, idx1], color='purple', linewidth=1.5, label=label1)
+        ax.plot(y_time, pred_mean[i,:, idx1], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx1]}')
         ax.fill_between(
             y_time,
-            pred_mean[i, :, 4] - pred_std[i, :, 4],
-            pred_mean[i, :, 4] + pred_std[i, :, 4],
-            color='lightcoral', alpha=0.3
+            pred_mean[i, :, idx1] - pred_std[i, :, idx1],
+            pred_mean[i, :, idx1] + pred_std[i, :, idx1],
+            color='lightgreen', alpha=0.3
         )
-        # Amount
-
-        ax.plot(y_time, pred_mean[i,:, 5], 'o-', color='blue', linewidth=2, label='Predicted Mean')
-        ax.plot(y_time, true_y_values[:, 5], color='cyan', linewidth=1.5, label=label_amount)        
+        # Idx2
+        ax.plot(y_time, true_y_values[:, idx2], color='darkgoldenrod', linewidth=1.5, label=label2)
+        ax.plot(y_time, pred_mean[i,:, idx2], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx2]}')
         ax.fill_between(
             y_time,
-            pred_mean[i, :, 5] - pred_std[i, :, 5],
-            pred_mean[i, :, 5] + pred_std[i, :, 5],
+            pred_mean[i, :, idx2] - pred_std[i, :, idx2],
+            pred_mean[i, :, idx2] + pred_std[i, :, idx2],
             color='lightblue', alpha=0.3
         )
-        ax.set_ylabel('Funding Rate / Log(Spot/Index)')
-        ax.set_xlabel('Time')
+        ax.set_ylabel(f'{feature_names[idx1]} and {feature_names[idx2]}')
+        ax.legend()
+        ax.grid(True, linestyle=':', alpha=0.7)
+        # (3) Weighted Funding rate and index_imbalance
+        ax = axes1[3]
+        # Weighted Idx1
+        ax.plot(y_time, true_y_values[:, idx1], color='purple', linewidth=1.5, label=label1)
+        ax.plot(y_time, pred_mean_weighted[i,:, idx1], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx1]} Weighted')
+        ax.fill_between(
+            y_time,
+            pred_mean_weighted[i, :, idx1] - pred_std_weighted[i, :, idx1],
+            pred_mean_weighted[i, :, idx1] + pred_std_weighted[i, :, idx1],
+            color='lightgreen', alpha=0.3
+        )
+        # Weighted Idx2
+        ax.plot(y_time, true_y_values[:, idx2], color='darkgoldenrod', linewidth=1.5, label=label2)
+        ax.plot(y_time, pred_mean_weighted[i,:, idx2], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx2]} Weighted')
+        ax.fill_between(
+            y_time,
+            pred_mean_weighted[i, :, idx2] - pred_std_weighted[i, :, idx2],
+            pred_mean_weighted[i, :, idx2] + pred_std_weighted[i, :, idx2],
+            color='lightblue', alpha=0.3
+        )
+        ax.set_ylabel(f'Weighted {feature_names[idx1]}, {feature_names[idx2]}')
         ax.legend()
         ax.grid(True, linestyle=':', alpha=0.7)
         plt.xticks(rotation=45)
@@ -452,44 +478,65 @@ def main():
         fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_price_volume.png", dpi=150)
         plt.close(fig1)
 
-        # (4) Volume and Amount
-        ax = axes1[3]
-        if TASK == "task5" or TASK == "task6":
-            label_volume = 'Funding Rate'
-            label_amount = 'Log(Spot/Index)'
-        else:
-            label_volume = 'True Swap Log(Bid/Ask)'
-            label_amount = 'True Spot Log(Bid/Ask)'
-        # Volume
-
-        ax.plot(y_time, pred_mean_weighted[i,:, 4], 'o-', color='red', linewidth=2, label='Predicted Mean')
-        ax.plot(y_time, true_y_values[:, 4], color='purple', linewidth=1.5, label=label_volume)
-        ax.fill_between(
-            y_time,
-            pred_mean_weighted[i, :, 4] - pred_std_weighted[i, :, 4],
-            pred_mean_weighted[i, :, 4] + pred_std_weighted[i, :, 4],
-            color='lightcoral', alpha=0.3
-        )
-        # Amount
-
-        ax.plot(y_time, pred_mean_weighted[i,:, 5], 'o-', color='blue', linewidth=2, label='Predicted Mean')
-        ax.plot(y_time, true_y_values[:, 5], color='cyan', linewidth=1.5, label=label_amount)        
-        ax.fill_between(
-            y_time,
-            pred_mean_weighted[i, :, 5] - pred_std_weighted[i, :, 5],
-            pred_mean_weighted[i, :, 5] + pred_std_weighted[i, :, 5],
-            color='lightblue', alpha=0.3
-        )
-        ax.set_ylabel('Funding Rate / Log Price')
-        ax.set_xlabel('Time')
-        ax.legend()
-        ax.grid(True, linestyle=':', alpha=0.7)
+        # Figure 2: Order book features 
+        fig2, axes2 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
+        order_book_features = [16, 26, 36, 46]  # spot_buy_price, spot_sell_price, spot_buy_amount, spot_sell_amount
+        for j, idx in enumerate(order_book_features):
+            ax = axes2[j]
+            label = f'True {feature_names[idx]}'
+            ax.plot(y_time, true_y_values[:, idx], color='purple', linewidth=1.5, label=label)
+            ax.plot(y_time, pred_mean[i,:, idx], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx]}')
+            ax.fill_between(
+                y_time,
+                pred_mean[i, :, idx] - pred_std[i, :, idx],
+                pred_mean[i, :, idx] + pred_std[i, :, idx],
+                color='lightgreen', alpha=0.3
+            )
+            ax.plot(y_time, pred_mean_weighted[i,:, idx], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx]} Weighted')
+            ax.fill_between(
+                y_time,
+                pred_mean_weighted[i, :, idx] - pred_std_weighted[i, :, idx],
+                pred_mean_weighted[i, :, idx] + pred_std_weighted[i, :, idx],
+                color='lightblue', alpha=0.3
+            )
+            ax.set_ylabel(feature_names[idx])
+            ax.legend()
+            ax.grid(True, linestyle=':', alpha=0.7)
         plt.xticks(rotation=45)
+        fig2.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
+        fig2.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book.png", dpi=150)
+        plt.close(fig2)
 
-        fig1.suptitle(f'{SYMBOL} - WeightedPrice and Volume Prediction (N={N_SAMPLES})')
-        fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
-        fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_price_volume.png", dpi=150)
-        plt.close(fig1)
+        # Figure 3: Order book features, amounts only 
+        fig3, axes3 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
+        order_book_features = [17, 27, 37, 47]  # spot_buy_price, spot_sell_price, spot_buy_amount, spot_sell_amount
+        for j, idx in enumerate(order_book_features):
+            ax = axes3[j]
+            label = f'True {feature_names[idx]}'
+            ax.plot(y_time, true_y_values[:, idx], color='purple', linewidth=1.5, label=label)
+            ax.plot(y_time, pred_mean[i,:, idx], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx]}')
+            ax.fill_between(
+                y_time,
+                pred_mean[i, :, idx] - pred_std[i, :, idx],
+                pred_mean[i, :, idx] + pred_std[i, :, idx],
+                color='lightgreen', alpha=0.3
+            )
+            ax.plot(y_time, pred_mean_weighted[i,:, idx], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx]} Weighted')
+            ax.fill_between(
+                y_time,
+                pred_mean_weighted[i, :, idx] - pred_std_weighted[i, :, idx],
+                pred_mean_weighted[i, :, idx] + pred_std_weighted[i, :, idx],
+                color='lightblue', alpha=0.3
+            )
+            ax.set_ylabel(feature_names[idx])
+            ax.legend()
+            ax.grid(True, linestyle=':', alpha=0.7)
+        plt.xticks(rotation=45)
+        fig3.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
+        fig3.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig3.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book_amounts.png", dpi=150)
+        plt.close(fig3)
 
     print(f"✅ All plots saved to {OUTPUT_DIR.absolute()}")
 
