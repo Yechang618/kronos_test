@@ -26,14 +26,14 @@ class Config:
         self.dataset_path = "./datasets/custom_25d/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 480
-        self.predict_window = 60
+        self.lookback_window = 120
+        self.predict_window = 10
         self.max_context = 2048
         self.clip = 5.0
 
         # 训练参数
         self.seed = 42
-        self.batch_size = 50
+        self.batch_size = 100
         self.log_interval = 100
         self.epochs = 1000
         self.n_train_iter = 500 * self.batch_size
