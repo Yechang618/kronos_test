@@ -66,7 +66,7 @@ def main():
     train_val_start = "2025-01-01"
     train_val_end = "2026-01-20"
     test_start = "2026-01-21"
-    test_end = "2026-01-21"
+    test_end = "2026-01-25"
 
     combined_train, combined_val = {}, {}
 
@@ -88,9 +88,10 @@ def main():
         print(df.isna().any(axis=None))
         if df.isna().any(axis=None):
             print(f"Warning: {sym} contains NaN values. Filling forward.")
-            df = df.fillna(method="ffill").dropna()
+            df = df.ffill().dropna()
         print(f"After NaN handling, {sym} has {len(df)} rows.")
         print(df.isna().any(axis=None))
+        print(df.info())
         # 训练+验证段
         train_val_df = df[(df.index >= train_val_start) & (df.index <= train_val_end)]
         n_total = len(train_val_df)
@@ -100,6 +101,7 @@ def main():
 
         # 独立测试集（按 symbol）
         test_df = df[(df.index >= test_start) & (df.index <= test_end)]
+        print(f"Test set for {sym} has {len(test_df)} rows, time index from {test_df.index.min()} to {test_df.index.max()}.")
         os.makedirs(f"./datasets/{TASK_NAME}/processed_datasets/{sym}", exist_ok=True)
         with open(f"./datasets/{TASK_NAME}/processed_datasets/{sym}/test_data.pkl", 'wb') as f:
             pickle.dump({sym: test_df}, f)

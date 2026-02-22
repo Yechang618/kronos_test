@@ -44,7 +44,11 @@ for i in range(len(symbols)):
     for f in sorted(files):
         print(f"Loading {f.name}...")
         df = pd.read_csv(f, compression='gzip')  # assuming .csv.gz
-        df['timestamps'] = pd.to_datetime(df['timestamps'], format='%m/%d/%Y %I:%M:%S %p')
+        print(f"Original columns: {df.columns.tolist()}")
+        if 'timestampes' in df.columns:
+            df['timestamps'] = pd.to_datetime(df['timestampes'], format='%m/%d/%Y %I:%M:%S %p')
+        else:
+            df['timestamps'] = pd.to_datetime(df['timestamps'], format='%m/%d/%Y %I:%M:%S %p')
         df.set_index('timestamps', inplace=True)
         # df = pd.read_csv(f, parse_dates=["timestamps"], index_col="timestamps")
         all_dfs.append(df)

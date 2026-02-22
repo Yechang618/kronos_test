@@ -196,8 +196,8 @@ if __name__ == "__main__":
     BASE_INPUT_DIR = "D:/market_data"
     BASE_OUTPUT_DIR = "./dataset/market_processed"
 
-    start_date = datetime(2026, 1, 13)
-    end_date = datetime(2026, 1, 21)
+    start_date = datetime(2026, 2, 12)
+    end_date = datetime(2026, 2, 17)
 
     current = start_date
     while current <= end_date:

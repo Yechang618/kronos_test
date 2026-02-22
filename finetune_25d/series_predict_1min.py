@@ -26,14 +26,7 @@ from model.kronos import sample_from_logits
 # TOKENIZER_PATH = "./outputs/models_10min/finetune_tokenizer_all/checkpoints/best_model"
 # PREDICTOR_PATH = "./outputs/models_10min/finetune_predictor_all/checkpoints/best_model"
 
-# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_long", 144, 48 #Should be the same as _144p48
-# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "", 144, 12
-## Current best models
-# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_10min_144p48", 144, 48
-# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_1", 144, 48
-# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_2", 144, 48
-# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_3", 480, 60
-MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_1min_task7", 480, 60
+MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_25d_1min", 480, 60
 
 LOOKBACK_WINDOW, PRED_LENGTH = 480, 60
 
@@ -61,7 +54,7 @@ TEMPERATURE = 100
 # START_TIME = "2025-10-02 07:50:00"
 
 ####################### Task 7: 1min 480p60 on all symbols ######################
-TASK = "task7"
+TASK = "task8"
 symbols = ['1000CAT', '1000CHEEMS', '1000SATS', '1MBABYDOGE', 
             'AAVE', 'ACH', 'ADA', 'AI', 'AIXBT', 'ALGO', 
             'ALICE', 'ALPINE', 'ALT', 'APE', 'API3', 'APT', 

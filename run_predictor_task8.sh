@@ -1,4 +1,4 @@
 #!/bin/bash
 #$ -S /bin/bash
 
-nohup python finetune_25d/train_predictor.py > train_predict.log
+nohup python finetune_25d/train_predictor.py > train_pred_task8.log

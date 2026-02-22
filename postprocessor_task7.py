@@ -4,6 +4,7 @@
 Post-process book data to generate 1-minute basis OHLCV + amount signals.
 """
 
+from click import group
 import pandas as pd
 from pathlib import Path
 import numpy as np
@@ -18,8 +19,8 @@ OUTPUT_DIR = Path("./datasets/processed/basis_1min_task7")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Date range to process
-START_DATE = "20251229"
-END_DATE = "20260121"
+START_DATE = "20260101"
+END_DATE = "20260126"
 
 # Get all dates in range
 date_range = pd.date_range(
@@ -116,7 +117,7 @@ def process_symbol(symbol: str):
 
     full_df = pd.concat(all_dfs, ignore_index=True)
     full_df = full_df.sort_values('timestamp').set_index('timestamp')
-
+    # print(full_df.info())
     # ✅ Fix 3: Use '1min' instead of '1T'
     def agg_func(group):
         if group.empty:
@@ -139,6 +140,7 @@ def process_symbol(symbol: str):
     ohlcv = full_df.groupby(pd.Grouper(freq='1min')).apply(agg_func)
     ohlcv = ohlcv.dropna(subset=['open', 'high', 'low', 'close'], how='all')
     ohlcv.index.name = 'timestampes'
+    # print(ohlcv.info())
 
     if ohlcv.empty:
         print(f"  ⚠️ No OHLCV generated for {symbol}")
@@ -146,7 +148,7 @@ def process_symbol(symbol: str):
 
     # Reset index for saving
     ohlcv_reset = ohlcv.reset_index()
-
+    # print(ohlcv.info())
     # ✅ Fix 4: Remove NaT before formatting
     ohlcv_reset = ohlcv_reset.dropna(subset=['timestampes'])
     if ohlcv_reset.empty:
@@ -170,14 +172,15 @@ def process_symbol(symbol: str):
             lambda x: f"{x.month}/{x.day}/{x.year} {x.strftime('%I:%M:%S %p')}"
         )
 
-        if output_file.exists():
-            existing = pd.read_csv(output_file, compression='gzip')
-            combined = pd.concat([existing, group.drop(columns=['year_month'])], ignore_index=True)
-            combined = combined.drop_duplicates(subset=['timestampes']).sort_values('timestampes')
-        else:
-            combined = group.drop(columns=['year_month'])
-
+        # if output_file.exists():
+        #     existing = pd.read_csv(output_file, compression='gzip')
+        #     combined = pd.concat([existing, group.drop(columns=['year_month'])], ignore_index=True)
+        #     combined = combined.drop_duplicates(subset=['timestampes']).sort_values('timestampes')
+        # else:
+            # combined = group.drop(columns=['year_month'])
+        combined = group.drop(columns=['year_month'])
         combined.to_csv(output_file, index=False, compression='gzip')
+        print(combined.info())
         print(f"  ✅ Saved {len(combined)} rows to {output_file}")
 
 # ----------------------------
