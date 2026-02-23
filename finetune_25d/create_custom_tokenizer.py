@@ -31,13 +31,16 @@ def main():
         ffn_dropout_p=0.1,
         attn_dropout_p=0.1,
         resid_dropout_p=0.1,
-        s1_bits=8,
-        s2_bits=8,
+        s1_bits=10,
+        s2_bits=10,
+        # s1_bits=8,
+        # s2_bits=8,        
         beta=0.25,
         gamma0=0.1,
         gamma=0.1,
         zeta=0.01,
-        group_size=16
+        # group_size=16
+        group_size = 5        
     )
 
     tokenizer.save_pretrained(save_dir)
