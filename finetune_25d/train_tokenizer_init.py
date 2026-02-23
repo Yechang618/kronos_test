@@ -29,7 +29,7 @@ def train_model(model, device, config, save_dir):
 
     start_epoch = 0
     best_val_loss = float('inf')
-    # checkpoint_path = os.path.join(save_dir, 'checkpoints', 'latest_checkpoint.pt')
+    checkpoint_path = os.path.join(save_dir, 'checkpoints', 'latest_checkpoint.pt')
     # if os.path.exists(checkpoint_path):
     #     print(f"Loading checkpoint from {checkpoint_path}")
     #     checkpoint = torch.load(checkpoint_path, map_location=device)
