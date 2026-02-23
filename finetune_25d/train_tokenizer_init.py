@@ -30,15 +30,15 @@ def train_model(model, device, config, save_dir):
     start_epoch = 0
     best_val_loss = float('inf')
     checkpoint_path = os.path.join(save_dir, 'checkpoints', 'latest_checkpoint.pt')
-    # if os.path.exists(checkpoint_path):
-    #     print(f"Loading checkpoint from {checkpoint_path}")
-    #     checkpoint = torch.load(checkpoint_path, map_location=device)
-    #     model.load_state_dict(checkpoint['model_state_dict'])
-    #     # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    #     # scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-    #     # start_epoch = checkpoint['epoch'] + 1
-    #     # best_val_loss = checkpoint['best_val_loss']
-    #     print(f"Resuming from epoch {start_epoch}")
+    if os.path.exists(checkpoint_path):
+        print(f"Loading checkpoint from {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        # scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        # start_epoch = checkpoint['epoch'] + 1
+        # best_val_loss = checkpoint['best_val_loss']
+        print(f"Resuming from epoch {start_epoch}")
 
     for epoch in range(start_epoch, config['epochs']):
         model.train()
