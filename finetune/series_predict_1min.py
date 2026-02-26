@@ -87,8 +87,8 @@ symbols = ['1000CAT', '1000CHEEMS', '1000SATS', '1MBABYDOGE',
             'UNI', 'VANA', 'VET', 'VIRTUAL', 'WIF', 'WLD', 'XLM', 'XRP', 'XVG', 
             'YFI', 'ZEC', 'ZEN', 'ZK', 'ZRO']
 # SYMBOL = symbols[0]
-SYMBOL = 'SOLV'
-START_TIME = "2026-01-23 12:00:00"
+SYMBOL = 'VET'
+START_TIME = "2026-01-24 12:00:00"
 # LOOKBACK_WINDOW = 480
 PRED_HORIZON = 5
 SIGMA = 1e-4
