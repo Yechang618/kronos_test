@@ -33,14 +33,14 @@ class Config:
 
         # 训练参数
         self.seed = 42
-        self.batch_size = 100
+        self.batch_size = 1000
         self.log_interval = 100
         self.epochs = 2000
         self.n_train_iter = 500 * self.batch_size
         self.n_val_iter = 1200 * self.batch_size
 
-        self.tokenizer_learning_rate = 1e-4
-        self.predictor_learning_rate = 1e-5
+        self.tokenizer_learning_rate = 1e-5
+        self.predictor_learning_rate = 1e-6
         self.adam_beta1 = 0.9
         self.adam_beta2 = 0.95
         self.adam_weight_decay = 0.1
