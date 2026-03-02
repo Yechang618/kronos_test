@@ -43,13 +43,14 @@ idx_high = 2
 idx_low = 3
 
 MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_25d_1min", 480, 60
+MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_56d_1min", 120, 10
 
-LOOKBACK_WINDOW, PRED_LENGTH = 480, 60
+# LOOKBACK_WINDOW, PRED_LENGTH = 480, 60
 
 TOKENIZER_PATH = f"./core/models/model{MODEL_NOTE}/custom_25d_tokenizer/checkpoints/best_model"
 PREDICTOR_PATH = f"./core/models/model{MODEL_NOTE}/custom_25d_predictor/checkpoints/best_model"
 
-TEMPERATURE = 100
+TEMPERATURE = 1
 ###################### Task 6: 1min 480p60 ######################
 TASK = "task8"
 symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
@@ -59,7 +60,7 @@ symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "THE", "TON", "TRX", "TURBO",  # 30
            "UNI", "XLM", "XRP", "ZEC", # 34
            ] # 
-SYMBOL = symbols[30]
+SYMBOL = symbols[5]
 START_TIME = "2025-10-02 07:50:00"
 
 ####################### Task 7: 1min 480p60 on all symbols ######################
@@ -92,12 +93,12 @@ START_TIME = "2025-10-02 07:50:00"
 # SYMBOL = 'SOLV'
 # START_TIME = "2026-01-23 12:00:00"
 # LOOKBACK_WINDOW = 480
-PRED_HORIZON = 1
+PRED_HORIZON = 10
 SIGMA = 1e-4
 # PRED_LENGTH = 12
 N_SAMPLES = 100
 note = f"{SYMBOL}_{TASK}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_Temp{TEMPERATURE}_samples{N_SAMPLES}_1min_fdr{MODEL_NOTE}"
-OUTPUT_DIR = Path(f"figures/series_pred_{note}")
+OUTPUT_DIR = Path(f"figures/step_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 # ==============================
@@ -282,12 +283,13 @@ def main():
 
         # Normalize x_input
         x_mean, x_std = np.mean(x_input, axis=0), np.std(x_input, axis=0)
+        x_input_norm = x_input.copy()
         x_input_norm = (x_input - x_mean) / (x_std + 1e-5)
         x_input_norm = np.clip(x_input_norm, -5.0, 5.0)
 
         preds = []
         weights = np.ones(N_SAMPLES) / N_SAMPLES
-        trends = []
+        # trends = []
         for n in range(N_SAMPLES):
             pred = predictor.predict(
                 x=x_input_norm,
@@ -302,8 +304,8 @@ def main():
             # print(f"pred shape: {pred.shape}") # predict shape: (PRED_LENGTH, 6)
             for j in range(pred.shape[0]):
                 pred[j, :] = pred[j, :]* (x_std + 1e-5) + x_mean  # 反归一化
-            trend = compute_trends(pred)  # 计算趋势
-            trends.append(trend)
+            # trend = compute_trends(pred)  # 计算趋势
+            # trends.append(trend)
             preds.append(pred)  # 反归一化
         preds = np.stack(preds, axis=0)  # (N_SAMPLES, PRED_LENGTH, 6)
         preds = np.transpose(preds, (1, 0, 2))  # (PRED_LENGTH, N_SAMPLES, 6)
@@ -480,7 +482,7 @@ def main():
 
         # Figure 2: Order book features 
         fig2, axes2 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
-        order_book_features = [16, 26, 36, 46]  # spot_buy_price, spot_sell_price, spot_buy_amount, spot_sell_amount
+        order_book_features = [16, 26, 36, 46]  # spot_buy_price, spot_sell_price, swap_buy_price, swap_sell_price
         for j, idx in enumerate(order_book_features):
             ax = axes2[j]
             label = f'True {feature_names[idx]}'
@@ -510,7 +512,7 @@ def main():
 
         # Figure 3: Order book features, amounts only 
         fig3, axes3 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
-        order_book_features = [17, 27, 37, 47]  # spot_buy_price, spot_sell_price, spot_buy_amount, spot_sell_amount
+        order_book_features = [17, 27, 37, 47]  # spot_buy_amount, spot_sell_amount, swap_buy_amount, swap_sell_amount
         for j, idx in enumerate(order_book_features):
             ax = axes3[j]
             label = f'True {feature_names[idx]}'
@@ -530,6 +532,7 @@ def main():
                 color='lightblue', alpha=0.3
             )
             ax.set_ylabel(feature_names[idx])
+            ax.set_yscale('log')
             ax.legend()
             ax.grid(True, linestyle=':', alpha=0.7)
         plt.xticks(rotation=45)
@@ -537,6 +540,158 @@ def main():
         fig3.tight_layout(rect=[0, 0.03, 1, 0.95])
         fig3.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book_amounts.png", dpi=150)
         plt.close(fig3)
+
+        # Figure 4: Order book features, amounts only 
+        fig4, axes4 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
+        # order_book_features = [10, 11, 14, 15]  # spot_buy_amount, spot_sell_amount, swap_buy_amount, swap_sell_amount
+        order_book_features = [8, 9, 12, 13]  # spot_buy_amount, spot_sell_amount, swap_buy_amount, swap_sell_amount
+        for j, idx in enumerate(order_book_features):
+            ax = axes4[j]
+            label = f'True {feature_names[idx]}'
+            ax.plot(y_time, pred_mean[i,:, idx], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx]}')
+            ax.fill_between(
+                y_time,
+                pred_mean[i, :, idx] - pred_std[i, :, idx],
+                pred_mean[i, :, idx] + pred_std[i, :, idx],
+                color='lightgreen', alpha=0.3
+            )
+            ax.plot(y_time, pred_mean_weighted[i,:, idx], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx]} Weighted')
+            ax.fill_between(
+                y_time,
+                pred_mean_weighted[i, :, idx] - pred_std_weighted[i, :, idx],
+                pred_mean_weighted[i, :, idx] + pred_std_weighted[i, :, idx],
+                color='lightblue', alpha=0.3
+            )
+            ax.plot(y_time, true_y_values[:, idx], color='purple', linewidth=1.5, label=label)            
+            ax.set_ylabel(feature_names[idx])
+            # ax.set_yscale('log')
+            ax.legend()
+            ax.grid(True, linestyle=':', alpha=0.7)
+        plt.xticks(rotation=45)
+        fig4.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
+        fig4.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig4.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book_trade.png", dpi=150)
+        plt.close(fig4)
+
+        # Figure 5: Basis
+        order_book_features = [0, 1]  # Basis Bid, Basis Ask
+        n_features = len(order_book_features)
+        fig5, axes5 = plt.subplots(n_features, 1, figsize=(12, 12), sharex=True)
+        for j, idx in enumerate(order_book_features):
+            ax = axes5[j]
+            label = f'True {feature_names[idx]}'
+            ax.plot(y_time, pred_mean[i,:, idx], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx]}')
+            ax.fill_between(
+                y_time,
+                pred_mean[i, :, idx] - pred_std[i, :, idx],
+                pred_mean[i, :, idx] + pred_std[i, :, idx],
+                color='lightgreen', alpha=0.3
+            )
+            ax.plot(y_time, pred_mean_weighted[i,:, idx], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx]} Weighted')
+            ax.fill_between(
+                y_time,
+                pred_mean_weighted[i, :, idx] - pred_std_weighted[i, :, idx],
+                pred_mean_weighted[i, :, idx] + pred_std_weighted[i, :, idx],
+                color='lightblue', alpha=0.3
+            )
+            if j == 0:
+                ax.plot(y_time, pred_mean[i,:, 16] - pred_mean[i,:, 46], '--', color='red', linewidth=2, label=f'Pred {feature_names[idx]} (Bid-Ask)')
+            elif j == 1:
+                ax.plot(y_time, pred_mean[i,:, 26] - pred_mean[i,:, 36], '--', color='red', linewidth=2, label=f'Pred {feature_names[idx]} (Ask-Bid)')
+            ax.plot(y_time, true_y_values[:, idx], color='purple', linewidth=1.5, label=label)            
+            ax.set_ylabel(feature_names[idx])
+            ax.legend()
+            ax.grid(True, linestyle=':', alpha=0.7)
+        plt.xticks(rotation=45)
+        fig5.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
+        fig5.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig5.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book_basis.png", dpi=150)
+        plt.close(fig5)
+
+        # Figure 6: Order book spot bid amount
+        order_book_features = [17, 19, 21, 23, 25]  # spot_bid0_amount, spot_bid1_amount, spot_bid2_amount, spot_bid3_amount, spot_bid4_amount
+        fig6, axes6 = plt.subplots(5, 1, figsize=(12, 12), sharex=True)
+        for j, idx in enumerate(order_book_features):
+            ax = axes6[j]
+            label = f'True {feature_names[idx]}'
+            ax.plot(y_time, pred_mean[i,:, idx], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx]}')
+            ax.fill_between(
+                y_time,
+                pred_mean[i, :, idx] - pred_std[i, :, idx],
+                pred_mean[i, :, idx] + pred_std[i, :, idx],
+                color='lightgreen', alpha=0.3
+            )
+            ax.plot(y_time, pred_mean_weighted[i,:, idx], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx]} Weighted')
+            ax.fill_between(
+                y_time,
+                pred_mean_weighted[i, :, idx] - pred_std_weighted[i, :, idx],
+                pred_mean_weighted[i, :, idx] + pred_std_weighted[i, :, idx],
+                color='lightblue', alpha=0.3
+            )
+            ax.plot(y_time, true_y_values[:, idx], color='purple', linewidth=1.5, label=label)            
+            ax.set_ylabel(feature_names[idx])
+            ax.set_yscale('log')
+            ax.legend()
+            ax.grid(True, linestyle=':', alpha=0.7)
+        plt.xticks(rotation=45)
+        fig6.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
+        fig6.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig6.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book_spot_bid_amount.png", dpi=150)
+        plt.close(fig6)
+
+        # Figure 7: Order book spot ask amount
+        order_book_features = [27, 29, 31, 33, 35]  # spot_ask0_amount, spot_ask1_amount, spot_ask2_amount, spot_ask3_amount, spot_ask4_amount
+        fig7, axes7 = plt.subplots(5, 1, figsize=(12, 12), sharex=True)
+        for j, idx in enumerate(order_book_features):
+            ax = axes7[j]
+            label = f'True {feature_names[idx]}'
+            ax.plot(y_time, pred_mean[i,:, idx], 'o-', color='green', linewidth=2, label=f'Pred {feature_names[idx]}')
+            ax.fill_between(
+                y_time,
+                pred_mean[i, :, idx] - pred_std[i, :, idx],
+                pred_mean[i, :, idx] + pred_std[i, :, idx],
+                color='lightgreen', alpha=0.3
+            )
+            ax.plot(y_time, pred_mean_weighted[i,:, idx], 'o-', color='blue', linewidth=2, label=f'Pred {feature_names[idx]} Weighted')
+            ax.fill_between(
+                y_time,
+                pred_mean_weighted[i, :, idx] - pred_std_weighted[i, :, idx],
+                pred_mean_weighted[i, :, idx] + pred_std_weighted[i, :, idx],
+                color='lightblue', alpha=0.3
+            )
+            ax.plot(y_time, true_y_values[:, idx], color='purple', linewidth=1.5, label=label)            
+            ax.set_ylabel(feature_names[idx])
+            ax.set_yscale('log')
+            ax.legend()
+            ax.grid(True, linestyle=':', alpha=0.7)
+        plt.xticks(rotation=45)
+        fig7.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
+        fig7.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig7.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book_spot_ask_amount.png", dpi=150)
+        plt.close(fig7)
+
+    context_end = x_end + PRED_HORIZON*PRED_LENGTH
+    y_true_df = df.iloc[x_end:context_end][feature_list]
+    y_time = df.index[x_end:context_end]
+    true_y_values = y_true_df.values  # (PRED_LENGTH, 6)
+    # Figure 0: True values
+    fig0, axes0 = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
+    order_book_features = [17, 27, 37, 47]  # spot_buy_price, spot_sell_price, spot_buy_amount, spot_sell_amount
+    # order_book_features = [10, 11, 14, 15]  # spot_buy_amount, spot_sell_amount, swap_buy_amount, swap_sell_amount
+    for j, idx in enumerate(order_book_features):
+        ax = axes0[j]
+        label = f'True {feature_names[idx]}'
+        ax.plot(y_time, true_y_values[:, idx], color='purple', linewidth=1.5, label=label)
+        ax.set_ylabel(feature_names[idx])
+        ax.set_yscale('log')
+        ax.legend()
+        ax.grid(True, linestyle=':', alpha=0.7)
+    plt.xticks(rotation=45)
+    fig0.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
+    fig0.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig0.savefig(OUTPUT_DIR / f"{SYMBOL}_{i}_order_book_true_values.png", dpi=150)
+    plt.close(fig0)
+    
 
     print(f"✅ All plots saved to {OUTPUT_DIR.absolute()}")
 

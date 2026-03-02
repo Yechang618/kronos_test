@@ -172,12 +172,6 @@ def process_symbol(symbol: str):
             lambda x: f"{x.month}/{x.day}/{x.year} {x.strftime('%I:%M:%S %p')}"
         )
 
-        # if output_file.exists():
-        #     existing = pd.read_csv(output_file, compression='gzip')
-        #     combined = pd.concat([existing, group.drop(columns=['year_month'])], ignore_index=True)
-        #     combined = combined.drop_duplicates(subset=['timestampes']).sort_values('timestampes')
-        # else:
-            # combined = group.drop(columns=['year_month'])
         combined = group.drop(columns=['year_month'])
         combined.to_csv(output_file, index=False, compression='gzip')
         print(combined.info())

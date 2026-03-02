@@ -26,8 +26,8 @@ class Config:
         self.dataset_path = "./datasets/custom_25d/processed_datasets"
 
         # 时间窗口
-        self.lookback_window = 120
-        self.predict_window = 10
+        self.lookback_window = 30
+        self.predict_window = 5
         self.max_context = 2048
         self.clip = 5.0
 
