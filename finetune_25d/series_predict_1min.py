@@ -98,7 +98,7 @@ SIGMA = 1e-4
 # PRED_LENGTH = 12
 N_SAMPLES = 100
 note = f"{SYMBOL}_{TASK}_lookback{LOOKBACK_WINDOW}_pred{PRED_HORIZON}_Temp{TEMPERATURE}_samples{N_SAMPLES}_1min_fdr{MODEL_NOTE}"
-OUTPUT_DIR = Path(f"figures/step_pred_{note}")
+OUTPUT_DIR = Path(f"figures/series_pred_{note}")
 OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 # ==============================
