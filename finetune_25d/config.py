@@ -48,11 +48,13 @@ class Config:
 
         # 模型路径
         self.pretrained_tokenizer_path = "./core/models/model_25d_1min/custom_25d_tokenizer/best_model"  # 不使用预训练 tokenizer
-        self.pretrained_predictor_path = "./core/pretrained/basemodel/best_model"  # Kronos-mini
+        # self.pretrained_predictor_path = "./core/pretrained/basemodel/best_model"  # Kronos-mini
+        self.pretrained_predictor_path = "./core/pretrained_100K/basemodel/best_model"  # Kronos-base
 
         self.save_path = "./core/models/model_25d_1min"
         self.tokenizer_save_folder_name = "custom_25d_tokenizer"
-        self.predictor_save_folder_name = "custom_25d_predictor"
+        # self.predictor_save_folder_name = "custom_25d_predictor"
+        self.predictor_save_folder_name = "custom_100M_predictor"
 
         # Comet
         self.use_comet = False
