@@ -389,21 +389,22 @@ class TestingVisualizer:
     def plot_true_vs_pred_scatter(self, y_true: np.ndarray, y_pred: np.ndarray, 
                                    symbol: str, model_type: str, target_col: str):
         """y_true vs y_pred 散点图 + 回归线"""
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, axes = plt.subplots(2, 1, figsize=(10, 8))
         
+        # Figure 1: y_true vs y_pred 散点图
         # 散点
-        ax.scatter(y_true, y_pred, alpha=0.3, s=15, color='steelblue', edgecolors='none')
+        axes[0].scatter(y_true, y_pred, alpha=0.3, s=15, color='steelblue', edgecolors='none')
         
         # 对角线 (完美预测)
         min_val = min(y_true.min(), y_pred.min())
         max_val = max(y_true.max(), y_pred.max())
-        ax.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, label='Perfect Prediction')
+        axes[0].plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, label='Perfect Prediction')
         
         # 回归线
         if len(y_true) > 2:
             coef = np.polyfit(y_true, y_pred, 1)
             poly = np.poly1d(coef)
-            ax.plot([min_val, max_val], poly([min_val, max_val]), 'g-', linewidth=1.5, 
+            axes[0].plot([min_val, max_val], poly([min_val, max_val]), 'g-', linewidth=1.5, 
                    label=f'Fit: y={coef[0]:.3f}x+{coef[1]:.3f}')
         
         # 统计信息
@@ -417,15 +418,46 @@ class TestingVisualizer:
         r2 = r2_score(y_true, y_pred)
         
         stats_text = f'IC(Spearman)={ic:.4f}\nR(Pearson)={pc:.4f}\nRMSE={rmse:.6f}\nR²={r2:.4f}'
-        ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
+        axes[0].text(0.02, 0.98, stats_text, transform=axes[0].transAxes, fontsize=10,
                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
         
-        ax.set_xlabel('True Values (y_true)', fontsize=12)
-        ax.set_ylabel('Predicted Values (y_pred)', fontsize=12)
-        ax.set_title(f'{symbol} ({model_type}): True vs Predicted', fontsize=14)
-        ax.legend(loc='lower right', fontsize=9)
-        ax.grid(True, alpha=0.3)
+        axes[0].set_xlabel('True Values (y_true)', fontsize=12)
+        axes[0].set_ylabel('Predicted Values (y_pred)', fontsize=12)
+        axes[0].set_title(f'{symbol} ({model_type}): True vs Predicted', fontsize=14)
+        axes[0].legend(loc='lower right', fontsize=9)
+        axes[0].grid(True, alpha=0.3)
         
+        # Figure 2: y_true vs y_true.shift(1) 散点图
+        y_true_shifted = np.roll(y_true, 1)
+        axes[1].scatter(y_true_shifted, y_true, alpha=0.3, s=15, color='blue', edgecolors='none')
+        axes[1].plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, label='Perfect Prediction')
+        axes[1].set_xlabel('True Values Shifted (y_true.shift(1))', fontsize=12)
+        axes[1].set_ylabel('True Values (y_true)', fontsize=12)
+        axes[1].set_title(f'{symbol} ({model_type}): True vs Previous True', fontsize=14)
+        axes[1].legend(loc='lower right', fontsize=9)
+        axes[1].grid(True, alpha=0.3)
+
+        # 回归线
+        if len(y_true_shifted) > 2:
+            coef = np.polyfit(y_true[~np.isnan(y_true_shifted)], y_true_shifted[~np.isnan(y_true_shifted)], 1)
+            poly = np.poly1d(coef)
+            axes[1].plot([min_val, max_val], poly([min_val, max_val]), 'g-', linewidth=1.5, 
+                   label=f'Fit: y={coef[0]:.3f}x+{coef[1]:.3f}')
+        
+        # 统计信息
+        ic, _ = stats.spearmanr(y_true, y_true_shifted)
+        try:
+            pc, _ = stats.pearsonr(y_true[~np.isnan(y_true_shifted)], y_true_shifted[~np.isnan(y_true_shifted)])
+        except:
+            pc = np.nan
+        mse = mean_squared_error(y_true, y_true_shifted)
+        rmse = np.sqrt(mse)
+        r2 = r2_score(y_true, y_true_shifted)
+        
+        stats_text = f'IC(Spearman)={ic:.4f}\nR(Pearson)={pc:.4f}\nRMSE={rmse:.6f}\nR²={r2:.4f}'
+        axes[1].text(0.02, 0.98, stats_text, transform=axes[1].transAxes, fontsize=10,
+               verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
         plt.tight_layout()
         plt.savefig(self.output_dir / f'{symbol}_{model_type}_true_vs_pred_scatter_{target_col}.png', dpi=150, bbox_inches='tight')
         plt.close()

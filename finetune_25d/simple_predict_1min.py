@@ -29,7 +29,8 @@ TASK = "task8"
 TEMPERATURE = 100
 
 MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_25d_1min", 480, 60
-MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_56d_1min", 10, 10
+# MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_56d_1min", 30, 5
+MODEL_NOTE, LOOKBACK_WINDOW, PRED_LENGTH = "_56d_1min_2", 30, 5
 
 TOKENIZER_PATH = f"./core/models/model{MODEL_NOTE}/custom_25d_tokenizer/checkpoints/best_model"
 PREDICTOR_PATH = f"./core/models/model{MODEL_NOTE}/custom_25d_predictor/checkpoints/best_model"
@@ -41,7 +42,7 @@ symbols = ["ADA", "AIXBT", "APT", "AVAX", "BCH", "BNB", "BTC",  # 6
            "THE", "TON", "TRX", "TURBO",  # 30
            "UNI", "XLM", "XRP", "ZEC", # 34
            ] # 
-SYMBOL = symbols[5]
+SYMBOL = symbols[3]
 START_TIME = "2025-10-05 00:00:00"
 PRED_HORIZON = 60
 N_SAMPLES = 10
@@ -340,7 +341,7 @@ def main():
 
     fig1.suptitle(f'{SYMBOL} - Price and Volume Prediction (N={N_SAMPLES})')
     fig1.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_price_volume.png", dpi=150)
+    fig1.savefig(OUTPUT_DIR / f"{SYMBOL}_price_volume_{MODEL_NOTE}.png", dpi=150)
     plt.close(fig1)
 
     # Figure 2: Order book features 
@@ -364,7 +365,7 @@ def main():
     plt.xticks(rotation=45)
     fig2.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
     fig2.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book.png", dpi=150)
+    fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_{MODEL_NOTE}.png", dpi=150)
     plt.close(fig2)
 
     # Figure 3: Order book features, amounts only 
@@ -389,7 +390,7 @@ def main():
     plt.xticks(rotation=45)
     fig3.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
     fig3.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig3.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_amounts.png", dpi=150)
+    fig3.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_amounts_{MODEL_NOTE}.png", dpi=150)
     plt.close(fig3)
 
     # Figure 4: Order book features, amounts only 
@@ -415,7 +416,7 @@ def main():
     plt.xticks(rotation=45)
     fig4.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
     fig4.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig4.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_trade.png", dpi=150)
+    fig4.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_trade_{MODEL_NOTE}.png", dpi=150)
     plt.close(fig4)
 
     # Figure 5: Basis
@@ -444,7 +445,7 @@ def main():
     plt.xticks(rotation=45)
     fig5.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
     fig5.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig5.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_basis.png", dpi=150)
+    fig5.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_basis_{MODEL_NOTE}.png", dpi=150)
     plt.close(fig5)
 
     # Figure 6: Order book spot bid amount
@@ -469,7 +470,7 @@ def main():
     plt.xticks(rotation=45)
     fig6.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
     fig6.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig6.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_spot_bid_amount.png", dpi=150)
+    fig6.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_spot_bid_amount_{MODEL_NOTE}.png", dpi=150)
     plt.close(fig6)
 
     # Figure 7: Order book spot ask amount
@@ -494,7 +495,7 @@ def main():
     plt.xticks(rotation=45)
     fig7.suptitle(f'{SYMBOL} - Order Book Prediction (N={N_SAMPLES})')
     fig7.tight_layout(rect=[0, 0.03, 1, 0.95])
-    fig7.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_spot_ask_amount.png", dpi=150)
+    fig7.savefig(OUTPUT_DIR / f"{SYMBOL}_order_book_spot_ask_amount_{MODEL_NOTE}.png", dpi=150)
     plt.close(fig7)
     
     # ==============================
@@ -524,7 +525,7 @@ def main():
     #     plt.xticks(rotation=45)
     #     fig2.suptitle(f'{SYMBOL} - Trend Components (N={N_SAMPLES})')
     #     fig2.tight_layout(rect=[0, 0.03, 1, 0.95])
-    #     fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_trend_components.png", dpi=150)
+    #     fig2.savefig(OUTPUT_DIR / f"{SYMBOL}_trend_components_{MODEL_NOTE}.png", dpi=150)
     #     plt.close(fig2)
     # else:
     #     print("⚠️ No trend components to plot.")

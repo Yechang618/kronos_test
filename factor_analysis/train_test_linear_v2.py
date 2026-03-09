@@ -44,9 +44,9 @@ class Config:
     SEQ_LENGTH = 60
     PREDICTION_HORIZON = 1
     TARGET_COL = 'basis_ret_future_1'
-    DEFAULT_TARGET_COL = 'kalman_swap_filtered'
+    # DEFAULT_TARGET_COL = 'kalman_swap_filtered'
     # DEFAULT_TARGET_COL = 'basis_ask'
-    # DEFAULT_TARGET_COL = 'spot_mid'
+    DEFAULT_TARGET_COL = 'spot_mid'
     
     # 数据分割
     TRAIN_RATIO = 0.7

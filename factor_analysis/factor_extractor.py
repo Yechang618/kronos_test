@@ -47,7 +47,7 @@ class Config:
     
     # 日期范围
     START_DATE = "20260101"
-    END_DATE = "20260101"
+    END_DATE = "20260107"
     
     # 因子计算参数
     LOOKBACK_WINDOWS = [5, 10, 20, 50, 100]
@@ -1242,7 +1242,7 @@ class FactorVisualizer:
         plt.close()
         print(f"    📈 保存 Lead-Lag 分析图：{symbol}_lead_lag_analysis.png")
     
-    def plot_correlation_heatmap(self, symbol: str, top_n: int = 20):
+    def plot_correlation_heatmap(self, symbol: str, top_n: int = 100):
         """因子相关性热力图"""
         if 'correlation_matrix' not in self.analysis_results:
             print(f"    ⚠️ 无相关性矩阵，跳过热力图")
@@ -1411,7 +1411,7 @@ def process_symbol(symbol: str, config: Config) -> dict:
     analyzer = FactorAnalyzer(factor_df, target_col='basis_ret_5')
     analyzer.compute_target(horizon=5)
     ic_table = analyzer.analyze_all_factors()
-    top_factors = analyzer.get_top_factors(n=10, min_abs_ic=0.02)
+    top_factors = analyzer.get_top_factors(n=50, min_abs_ic=0.02)
     corr_matrix = analyzer.calculate_factor_correlation()
     
     # 保存因子数据
@@ -1541,24 +1541,24 @@ if __name__ == "__main__":
         exit(1)
     
     all_summaries = []
-    for i, symbol in enumerate(symbols, 1):
-        print(f"\n[{i}/{len(symbols)}] 处理进度")
-        try:
-            summary = process_symbol(symbol, config)
-            all_summaries.append(summary)
-        except Exception as e:
-            print(f"❌ {symbol} 处理失败：{e}")
-            import traceback
-            traceback.print_exc()
-            all_summaries.append({
-                'symbol': symbol,
-                'status': 'failed',
-                'error': str(e)
-            })
-    # symbol = 'AVAXUSDT'
+    # for i, symbol in enumerate(symbols, 1):
+    #     print(f"\n[{i}/{len(symbols)}] 处理进度")
+    #     try:
+    #         summary = process_symbol(symbol, config)
+    #         all_summaries.append(summary)
+    #     except Exception as e:
+    #         print(f"❌ {symbol} 处理失败：{e}")
+    #         import traceback
+    #         traceback.print_exc()
+    #         all_summaries.append({
+    #             'symbol': symbol,
+    #             'status': 'failed',
+    #             'error': str(e)
+    #         })
+    symbol = 'AVAXUSDT'
     # symbol = 'ADAUSDT'
-    # summary = process_symbol(symbol, config)
-    # all_summaries.append(summary)
+    summary = process_symbol(symbol, config)
+    all_summaries.append(summary)
 
     generate_summary_report(all_summaries, config)
     
