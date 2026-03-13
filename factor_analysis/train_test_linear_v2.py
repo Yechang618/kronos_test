@@ -45,8 +45,8 @@ class Config:
     PREDICTION_HORIZON = 1
     TARGET_COL = 'basis_ret_future_1'
     # DEFAULT_TARGET_COL = 'kalman_swap_filtered'
-    # DEFAULT_TARGET_COL = 'basis_ask'
-    DEFAULT_TARGET_COL = 'spot_mid'
+    DEFAULT_TARGET_COL = 'basis_ask'
+    # DEFAULT_TARGET_COL = 'spot_mid'
     
     # 数据分割
     TRAIN_RATIO = 0.7
@@ -1115,7 +1115,7 @@ def generate_summary_report(summaries: list, config: Config):
 # ============================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Linear Regression 因子训练测试脚本 (优化版)')
-    parser.add_argument('--symbol', type=str, default='AVAXUSDT', help='交易对名称')
+    parser.add_argument('--symbol', type=str, default='ETHUSDT', help='交易对名称')
     parser.add_argument('--all_symbols', action='store_true', help='处理所有交易对')
     parser.add_argument('--model', type=str, default='linear',
                        choices=['linear', 'ridge', 'lasso'],

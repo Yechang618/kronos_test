@@ -38,7 +38,7 @@ except ImportError:
 class Config:
     # 数据路径
     INPUT_BASE = Path("./dataset/market_processed")
-    OUTPUT_DIR = Path("./datasets/factors/hf_factors")
+    OUTPUT_DIR = Path("./datasets/factors/hf_factors_30s")
     ANALYSIS_DIR = Path("./datasets/analysis/factor_reports")
     
     # 创建输出目录
@@ -47,7 +47,7 @@ class Config:
     
     # 日期范围
     START_DATE = "20260101"
-    END_DATE = "20260107"
+    END_DATE = "20260131"
     
     # 因子计算参数
     LOOKBACK_WINDOWS = [5, 10, 20, 50, 100]
@@ -58,7 +58,8 @@ class Config:
     MODWT_LEVELS = 4       # 分解层数
     
     # ✅ 新增：重采样配置
-    RESAMPLE_FREQUENCY = '500ms'  # 重采样频率
+    # RESAMPLE_FREQUENCY = '500ms'  # 重采样频率
+    RESAMPLE_FREQUENCY = '30s'  # 重采样频率
     RESAMPLE_METHOD = 'last'      # 价格列重采样方法 (last/mean/ohlc)
     FILL_METHOD = 'ffill'         # 填充方法 (ffill/bfill/interpolate)
     
@@ -1408,7 +1409,7 @@ def process_symbol(symbol: str, config: Config) -> dict:
     factor_df = factor_engine.get_factor_dataframe()
     
     # 因子分析
-    analyzer = FactorAnalyzer(factor_df, target_col='basis_ret_5')
+    analyzer = FactorAnalyzer(factor_df, target_col='basis_ret_1')
     analyzer.compute_target(horizon=5)
     ic_table = analyzer.analyze_all_factors()
     top_factors = analyzer.get_top_factors(n=50, min_abs_ic=0.02)
@@ -1424,7 +1425,7 @@ def process_symbol(symbol: str, config: Config) -> dict:
     for period, group in factor_df_reset.groupby('year_month'):
         year = period.year
         month = str(period.month).zfill(2)
-        filename = f"{symbol}_factors_{year}-{month}.csv.gz"
+        filename = f"{symbol}_factors_{year}-{month}_{config.RESAMPLE_FREQUENCY}.csv.gz"
         output_file = symbol_output_dir / filename
         group.drop(columns=['year_month']).to_csv(
             output_file, index=False, compression='gzip'
@@ -1541,24 +1542,25 @@ if __name__ == "__main__":
         exit(1)
     
     all_summaries = []
-    # for i, symbol in enumerate(symbols, 1):
-    #     print(f"\n[{i}/{len(symbols)}] 处理进度")
-    #     try:
-    #         summary = process_symbol(symbol, config)
-    #         all_summaries.append(summary)
-    #     except Exception as e:
-    #         print(f"❌ {symbol} 处理失败：{e}")
-    #         import traceback
-    #         traceback.print_exc()
-    #         all_summaries.append({
-    #             'symbol': symbol,
-    #             'status': 'failed',
-    #             'error': str(e)
-    #         })
-    symbol = 'AVAXUSDT'
+    for i, symbol in enumerate(symbols, 1):
+        print(f"\n[{i}/{len(symbols)}] 处理进度")
+        try:
+            summary = process_symbol(symbol, config)
+            all_summaries.append(summary)
+        except Exception as e:
+            print(f"❌ {symbol} 处理失败：{e}")
+            import traceback
+            traceback.print_exc()
+            all_summaries.append({
+                'symbol': symbol,
+                'status': 'failed',
+                'error': str(e)
+            })
+    # symbol = 'AVAXUSDT'
     # symbol = 'ADAUSDT'
-    summary = process_symbol(symbol, config)
-    all_summaries.append(summary)
+    # symbol = 'ETHUSDT'
+    # summary = process_symbol(symbol, config)
+    # all_summaries.append(summary)
 
     generate_summary_report(all_summaries, config)
     
