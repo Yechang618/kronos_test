@@ -17,7 +17,9 @@ os.environ["JOBLIB_MULTIPROCESSING"] = "0"
 warnings.filterwarnings('ignore')
 
 # ================= 配置区域 =================
-DATASET_PATH = "./dataset/processed_training_set.csv"
+symbol = "AAVEUSDT"
+# DATASET_PATH = "./dataset/processed_training_set.csv"
+DATASET_PATH = f"./dataset/samples_20260101_{symbol}.csv"
 TEST_SIZE_RATIO = 0.2
 VAL_SIZE_RATIO = 0.2
 # 修复：设置 n_jobs=1 避免 Windows 下的并行问题

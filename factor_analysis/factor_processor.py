@@ -376,6 +376,13 @@ def main():
     
     for i, (name, group) in enumerate(grouped):
         date_str, symbol = name
+        print(symbol, date_str)
+        if symbol[0] in ['1', 'A']:
+            print(f"  ⚠️ Skipping {symbol} due to symbol filter.")
+            continue
+        elif symbol in ['BANANAUSDT', 'BANDUSDT', 'BBUSDT']:
+            print(f"  ⚠️ Skipping {symbol} due to symbol filter.")
+            continue
         if i % 50 == 0:
             print(f"Processing group {i}/{total_groups}: {date_str} {symbol}")
             
@@ -383,7 +390,8 @@ def main():
         if market_df is None:
             print(f"  ⚠️ No market data for {date_str} {symbol}")
             continue
-            
+        
+        df_symbol = []
         for _, trade in group.iterrows():
             factors = calculate_factors(market_df, trade['trade_ts'], lookback_seconds)
             if factors:
@@ -397,6 +405,10 @@ def main():
                 }
                 sample.update(factors)
                 processed_samples.append(sample)
+                df_symbol.append(sample)
+        df_symbol = pd.DataFrame(df_symbol)
+        df_symbol.to_csv(f"./dataset/samples_{date_str}_{symbol}.csv", index=False)
+        print(f"\nSample for {date_str} {symbol} at {pd.to_datetime(trade['trade_ts'], unit='ms')} with {len(factors)} factors:")
                 
     if not processed_samples:
         print("❌ No valid samples generated. Check data paths and columns.")
